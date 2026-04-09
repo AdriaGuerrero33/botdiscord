@@ -81,18 +81,15 @@ async function enviarMensaje() {
   console.log(`\nRESUMEN: ${enviados} tickets OK | ${errores} errores`);
 }
 
-client.once('ready', async () => {
+client.once('ready', () => {
   console.log(`Bot conectado como: ${client.user.tag}`);
-
-  // Envio inmediato al arrancar
-  await enviarMensaje();
 
   // Scheduler: cada jueves a las 15:00 hora de Madrid
   cron.schedule('0 15 * * 4', enviarMensaje, {
     timezone: 'Europe/Madrid',
   });
 
-  console.log('\nScheduler activo: cada jueves a las 15:00 (Madrid)');
+  console.log('Scheduler activo: cada jueves a las 15:00 (Madrid)');
 });
 
 client.on('error', err => console.error('Error del cliente Discord:', err.message));
