@@ -105,8 +105,11 @@ async function enviarMensaje() {
   console.log(`\nRESUMEN: ${enviados} tickets OK | ${errores} errores`);
 }
 
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Bot conectado como: ${client.user.tag}`);
+
+  // Prueba inmediata - se eliminara tras confirmar
+  await enviarRecordatorioDiario();
 
   // Jueves a las 15:00: mensaje semanal a anuncios + general + todos los tickets
   cron.schedule('0 15 * * 4', enviarMensaje, {
