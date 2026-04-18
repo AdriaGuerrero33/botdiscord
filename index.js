@@ -22,7 +22,31 @@ Pasa todos los enlaces de lo que hayas hecho desde el sabado hasta hoy DESPUES d
 
 @everyone`;
 
+const MENSAJE_DIARIO = `# @everyone PEDIR MAS RESEÑAS en vuestro ticket`;
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function enviarRecordatorioDiario() {
+  console.log(`\n[${new Date().toISOString()}] Enviando recordatorio diario...`);
+
+  const guild = client.guilds.cache.first();
+  if (!guild) return;
+
+  await guild.channels.fetch();
+
+  for (const channelId of [CHANNEL_ANUNCIOS, CHANNEL_GENERAL].filter(Boolean)) {
+    try {
+      const channel = guild.channels.cache.get(channelId);
+      if (channel && channel.isTextBased()) {
+        await channel.send(MENSAJE_DIARIO);
+        console.log(`[OK] Recordatorio enviado a #${channel.name}`);
+      }
+    } catch (err) {
+      console.error(`[ERROR] Canal ${channelId}: ${err.message}`);
+    }
+    await sleep(1000);
+  }
+}
 
 async function enviarMensaje() {
   console.log(`\n[${new Date().toISOString()}] Iniciando envio de mensajes...`);
@@ -84,12 +108,19 @@ async function enviarMensaje() {
 client.once('ready', () => {
   console.log(`Bot conectado como: ${client.user.tag}`);
 
-  // Scheduler: cada jueves a las 15:00 hora de Madrid
+  // Jueves a las 15:00: mensaje semanal a anuncios + general + todos los tickets
   cron.schedule('0 15 * * 4', enviarMensaje, {
     timezone: 'Europe/Madrid',
   });
 
-  console.log('Scheduler activo: cada jueves a las 15:00 (Madrid)');
+  // Todos los dias a las 15:00: recordatorio solo en anuncios y general
+  cron.schedule('0 15 * * *', enviarRecordatorioDiario, {
+    timezone: 'Europe/Madrid',
+  });
+
+  console.log('Schedulers activos:');
+  console.log('  - Diario      15:00 (Madrid) -> anuncios + general');
+  console.log('  - Jueves      15:00 (Madrid) -> anuncios + general + todos los tickets');
 });
 
 client.on('error', err => console.error('Error del cliente Discord:', err.message));
