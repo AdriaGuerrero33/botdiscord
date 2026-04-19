@@ -1,82 +1,114 @@
-const path = require('path');
 const fs   = require('fs');
+const path = require('path');
 
-const dir = process.env.DB_PATH
+const DIR  = process.env.DB_PATH
   ? path.dirname(process.env.DB_PATH)
   : path.join(__dirname, 'data');
 
-if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+if (!fs.existsSync(DIR)) fs.mkdirSync(DIR, { recursive: true });
 
-const dbPath = process.env.DB_PATH || path.join(dir, 'bot.db');
+const FILE = process.env.DB_PATH || path.join(DIR, 'data.json');
 
-let Database;
-try {
-  Database = require('better-sqlite3');
-  console.log('[DB] better-sqlite3 cargado');
-} catch (e) {
-  console.error('[DB] Error cargando better-sqlite3:', e.message);
-  throw new Error('No se pudo cargar la base de datos: ' + e.message);
+const EMPTY = { negocios: [], asignaciones: [], reseñas: [] };
+
+function load() {
+  try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); }
+  catch { return structuredClone(EMPTY); }
 }
 
-const db = new Database(dbPath);
+function save(d) {
+  fs.writeFileSync(FILE, JSON.stringify(d, null, 2));
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS negocios (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre      TEXT    NOT NULL,
-    enlace      TEXT    NOT NULL,
-    total       INTEGER NOT NULL DEFAULT 10,
-    hechas      INTEGER NOT NULL DEFAULT 0,
-    prioridad   INTEGER NOT NULL DEFAULT 3,
-    descripcion TEXT    DEFAULT '',
-    activo      INTEGER NOT NULL DEFAULT 1,
-    creado      DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE TABLE IF NOT EXISTS asignaciones (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    negocio_id INTEGER NOT NULL,
-    user_id    TEXT    NOT NULL,
-    user_tag   TEXT,
-    canal_id   TEXT    NOT NULL,
-    cantidad   INTEGER NOT NULL,
-    fecha      DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE TABLE IF NOT EXISTS reseñas (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    enlace     TEXT    NOT NULL UNIQUE,
-    user_id    TEXT    NOT NULL,
-    user_tag   TEXT,
-    negocio_id INTEGER,
-    canal_id   TEXT,
-    valida     INTEGER DEFAULT NULL,
-    fecha      DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
+function nextId(arr) {
+  return arr.length > 0 ? Math.max(...arr.map(x => x.id)) + 1 : 1;
+}
 
+function now() { return new Date().toISOString(); }
+
+// ── NEGOCIOS ──────────────────────────────────────────────────────────────────
 const negocios = {
-  getAll:    ()    => db.prepare('SELECT * FROM negocios ORDER BY prioridad DESC, (total-hechas) DESC, creado DESC').all(),
-  getActive: ()    => db.prepare('SELECT * FROM negocios WHERE activo=1 AND hechas<total ORDER BY prioridad DESC, (total-hechas) DESC').all(),
-  get:       (id)  => db.prepare('SELECT * FROM negocios WHERE id=?').get(id),
-  add:       (d)   => db.prepare('INSERT INTO negocios (nombre,enlace,total,prioridad,descripcion) VALUES (@nombre,@enlace,@total,@prioridad,@descripcion)').run(d),
-  update:    (id,d)=> db.prepare('UPDATE negocios SET nombre=@nombre,enlace=@enlace,total=@total,prioridad=@prioridad,descripcion=@descripcion,activo=@activo WHERE id=@id').run({...d,id}),
-  delete:    (id)  => db.prepare('DELETE FROM negocios WHERE id=?').run(id),
-  addHechas: (id,n)=> db.prepare('UPDATE negocios SET hechas=MIN(total,hechas+?) WHERE id=?').run(n, id),
-  stats:     ()    => ({
-    negocios:  db.prepare('SELECT COUNT(*) as n FROM negocios WHERE activo=1').get().n,
-    hechas:    db.prepare('SELECT COALESCE(SUM(hechas),0) as n FROM negocios').get().n,
-    necesarias:db.prepare('SELECT COALESCE(SUM(total),0) as n FROM negocios WHERE activo=1').get().n,
-  }),
+  getAll() {
+    const d = load();
+    return d.negocios.sort((a, b) => b.prioridad - a.prioridad || (b.total - b.hechas) - (a.total - a.hechas));
+  },
+  getActive() {
+    return this.getAll().filter(n => n.activo && n.hechas < n.total);
+  },
+  get(id) {
+    return load().negocios.find(n => n.id === Number(id));
+  },
+  add({ nombre, enlace, total, prioridad, descripcion }) {
+    const d = load();
+    const id = nextId(d.negocios);
+    d.negocios.push({ id, nombre, enlace, total: Number(total)||10, hechas: 0, prioridad: Number(prioridad)||3, descripcion: descripcion||'', activo: 1, creado: now() });
+    save(d);
+    return { lastInsertRowid: id };
+  },
+  update(id, { nombre, enlace, total, prioridad, descripcion, activo, hechas }) {
+    const d = load();
+    const i = d.negocios.findIndex(n => n.id === Number(id));
+    if (i === -1) return;
+    d.negocios[i] = { ...d.negocios[i], nombre, enlace, total: Number(total), prioridad: Number(prioridad), descripcion: descripcion||'', activo: activo ? 1 : 0 };
+    if (hechas !== undefined) d.negocios[i].hechas = Math.min(Number(total), Number(hechas));
+    save(d);
+  },
+  delete(id) {
+    const d = load();
+    d.negocios = d.negocios.filter(n => n.id !== Number(id));
+    save(d);
+  },
+  addHechas(id, n) {
+    const d = load();
+    const i = d.negocios.findIndex(x => x.id === Number(id));
+    if (i !== -1) {
+      d.negocios[i].hechas = Math.min(d.negocios[i].total, d.negocios[i].hechas + n);
+      save(d);
+    }
+  },
+  stats() {
+    const d = load();
+    const activos = d.negocios.filter(n => n.activo);
+    return {
+      negocios:   activos.length,
+      hechas:     d.negocios.reduce((s, n) => s + n.hechas, 0),
+      necesarias: activos.reduce((s, n) => s + n.total, 0),
+    };
+  },
 };
 
+// ── ASIGNACIONES ──────────────────────────────────────────────────────────────
 const asignaciones = {
-  add:       (d)     => db.prepare('INSERT INTO asignaciones (negocio_id,user_id,user_tag,canal_id,cantidad) VALUES (@negocio_id,@user_id,@user_tag,@canal_id,@cantidad)').run(d),
-  getRecent: (n=20)  => db.prepare('SELECT a.*,neg.nombre FROM asignaciones a LEFT JOIN negocios neg ON a.negocio_id=neg.id ORDER BY a.fecha DESC LIMIT ?').all(n),
+  add({ negocio_id, user_id, user_tag, canal_id, cantidad }) {
+    const d = load();
+    d.asignaciones.push({ id: nextId(d.asignaciones), negocio_id, user_id, user_tag, canal_id, cantidad, fecha: now() });
+    save(d);
+  },
+  getRecent(limit = 30) {
+    const d = load();
+    return d.asignaciones
+      .slice(-limit).reverse()
+      .map(a => ({ ...a, nombre: d.negocios.find(n => n.id === a.negocio_id)?.nombre || '—' }));
+  },
 };
 
+// ── RESEÑAS ───────────────────────────────────────────────────────────────────
 const reseñas = {
-  get:      (enlace)   => db.prepare('SELECT * FROM reseñas WHERE enlace=?').get(enlace),
-  add:      (d)        => db.prepare('INSERT OR IGNORE INTO reseñas (enlace,user_id,user_tag,negocio_id,canal_id) VALUES (@enlace,@user_id,@user_tag,@negocio_id,@canal_id)').run(d),
-  setValida:(enlace,v) => db.prepare('UPDATE reseñas SET valida=? WHERE enlace=?').run(v ? 1 : 0, enlace),
+  get(enlace) {
+    return load().reseñas.find(r => r.enlace === enlace);
+  },
+  add({ enlace, user_id, user_tag, negocio_id, canal_id }) {
+    const d = load();
+    if (d.reseñas.find(r => r.enlace === enlace)) return;
+    d.reseñas.push({ id: nextId(d.reseñas), enlace, user_id, user_tag, negocio_id, canal_id, valida: null, fecha: now() });
+    save(d);
+  },
+  setValida(enlace, v) {
+    const d = load();
+    const i = d.reseñas.findIndex(r => r.enlace === enlace);
+    if (i !== -1) { d.reseñas[i].valida = v ? 1 : 0; save(d); }
+  },
 };
 
+console.log('[DB] Base de datos JSON lista en', FILE);
 module.exports = { negocios, asignaciones, reseñas };
