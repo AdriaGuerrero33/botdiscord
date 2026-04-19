@@ -6,6 +6,8 @@ const { analizar } = require('./gemini');
 const app = express();
 app.use(express.json());
 
+app.get('/health', (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
 // Basic auth opcional
 const PASS = process.env.DASHBOARD_PASSWORD;
 if (PASS) {

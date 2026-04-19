@@ -1,11 +1,23 @@
-const Database = require('better-sqlite3');
 const path = require('path');
-const fs = require('fs');
+const fs   = require('fs');
 
-const dir = process.env.DB_PATH ? path.dirname(process.env.DB_PATH) : path.join(__dirname, 'data');
+const dir = process.env.DB_PATH
+  ? path.dirname(process.env.DB_PATH)
+  : path.join(__dirname, 'data');
+
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
 const dbPath = process.env.DB_PATH || path.join(dir, 'bot.db');
+
+let Database;
+try {
+  Database = require('better-sqlite3');
+  console.log('[DB] better-sqlite3 cargado');
+} catch (e) {
+  console.error('[DB] Error cargando better-sqlite3:', e.message);
+  throw new Error('No se pudo cargar la base de datos: ' + e.message);
+}
+
 const db = new Database(dbPath);
 
 db.exec(`
