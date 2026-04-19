@@ -108,8 +108,28 @@ async function enviarMensaje() {
 client.once('ready', async () => {
   console.log(`Bot conectado como: ${client.user.tag}`);
 
-  // Prueba inmediata - se eliminara tras confirmar
-  await enviarRecordatorioDiario();
+  // Mensaje unico a todos los tickets
+  const guild = client.guilds.cache.first();
+  if (guild) {
+    await guild.channels.fetch();
+    const tickets = guild.channels.cache.filter(
+      ch => ch.isTextBased() && PATRON_TICKET.test(ch.name)
+    );
+    console.log(`Enviando mensaje unico a ${tickets.size} tickets...`);
+    let enviados = 0;
+    const MENSAJE_UNICO = `# Buenas, antes de hacer cualquier reseñas con la nueva metodologia revisar <#1415462190860730458> donde lo explicamos, cualquier duda preguntarme a mi directamente. Vamos con todo`;
+    for (const [, channel] of tickets) {
+      try {
+        await channel.send(MENSAJE_UNICO);
+        enviados++;
+        if (enviados % 10 === 0) console.log(`  ${enviados}/${tickets.size} enviados...`);
+      } catch (err) {
+        console.error(`[ERROR] ${channel.name}: ${err.message}`);
+      }
+      await sleep(1000);
+    }
+    console.log(`Mensaje unico completado: ${enviados}/${tickets.size} tickets`);
+  }
 
   // Jueves a las 15:00: mensaje semanal a anuncios + general + todos los tickets
   cron.schedule('0 15 * * 4', enviarMensaje, {
