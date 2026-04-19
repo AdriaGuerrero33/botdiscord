@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "echo ok"
   },
   "repository": {
     "type": "git",
@@ -14,8 +15,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.15.1",
+    "better-sqlite3": "^12.9.0",
     "discord.js": "^14.26.2",
     "dotenv": "^17.4.1",
-    "node-cron": "^4.2.1"
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "node-telegram-bot-api": "^0.67.0"
   }
 }

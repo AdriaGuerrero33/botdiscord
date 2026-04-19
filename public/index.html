@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSMoney — Panel de Reseñas</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+a{color:#58a6ff;text-decoration:none}
+a:hover{text-decoration:underline}
+
+header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+header h1{font-size:18px;font-weight:700;color:#58a6ff}
+.header-actions{display:flex;gap:8px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;padding:24px 24px 0}
+.stat{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px}
+.stat .lbl{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.stat .val{font-size:30px;font-weight:700}
+.stat.blue .val{color:#58a6ff}
+.stat.green .val{color:#3fb950}
+.stat.orange .val{color:#d29922}
+.stat.purple .val{color:#bc8cff}
+
+.main{padding:24px}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.toolbar h2{font-size:15px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
+
+button{cursor:pointer;border:none;border-radius:6px;font-size:13px;font-weight:500;padding:8px 14px;transition:filter .15s}
+button:hover{filter:brightness(1.15)}
+.btn-green{background:#238636;color:#fff}
+.btn-blue{background:#1f6feb;color:#fff}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-edit{background:#21262d;color:#e6edf3}
+.btn-del{background:#3d1a1a;color:#f85149}
+.btn-rep{background:#2d1f6e;color:#bc8cff}
+
+.table-wrap{border:1px solid #30363d;border-radius:10px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead{background:#161b22}
+th{padding:11px 16px;text-align:left;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+td{padding:12px 16px;border-top:1px solid #21262d;font-size:13px;vertical-align:middle}
+tr:hover td{background:#161b22}
+.empty-row td{text-align:center;color:#8b949e;padding:40px}
+
+.prog-bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;width:100px}
+.prog-fill{height:100%;border-radius:3px;transition:width .4s}
+.prog-lbl{font-size:11px;color:#8b949e;margin-top:3px}
+
+.badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600}
+.b-p5{background:#3d1a1a;color:#f85149}
+.b-p4{background:#3d2a1a;color:#e3961a}
+.b-p3{background:#2a2a1a;color:#d29922}
+.b-p2{background:#1a2a1a;color:#56d364}
+.b-p1{background:#21262d;color:#8b949e}
+.b-on{background:#1a3d1a;color:#3fb950}
+.b-off{background:#21262d;color:#8b949e}
+
+.actions{display:flex;gap:6px}
+
+/* Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:20px}
+.fg{margin-bottom:14px}
+label{display:block;font-size:12px;color:#8b949e;margin-bottom:5px}
+input,textarea,select{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:8px 12px;font-size:13px;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:#58a6ff;box-shadow:0 0 0 3px rgba(88,166,255,.1)}
+textarea{resize:vertical;min-height:80px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid #30363d}
+.btn-cancel{background:#21262d;color:#e6edf3}
+
+/* Reporte */
+.report-section{margin-top:24px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;display:none}
+.report-section h3{color:#bc8cff;margin-bottom:14px;font-size:15px}
+.report-body{font-size:13px;line-height:1.7;white-space:pre-wrap;color:#c9d1d9}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid #30363d;padding-bottom:0}
+.tab{padding:10px 16px;cursor:pointer;font-size:13px;color:#8b949e;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s}
+.tab.active{color:#e6edf3;border-bottom-color:#58a6ff}
+
+/* Historial */
+.hist-item{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 0;border-bottom:1px solid #21262d;font-size:13px}
+.hist-item:last-child{border-bottom:none}
+.hist-neg{font-weight:600;color:#e6edf3}
+.hist-meta{font-size:11px;color:#8b949e;margin-top:2px}
+.hist-cant{color:#58a6ff;font-weight:700;white-space:nowrap}
+
+@media(max-width:640px){
+  .stats{grid-template-columns:1fr 1fr;padding:16px 16px 0}
+  .main{padding:16px}
+  .frow{grid-template-columns:1fr}
+  th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4){display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏪 RSMoney — Panel de Reseñas</h1>
+  <div class="header-actions">
+    <button class="btn-rep" onclick="generarReporte()">🤖 Reporte IA</button>
+    <button class="btn-green" onclick="abrirModal()">+ Añadir negocio</button>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="stat blue"><div class="lbl">Negocios activos</div><div class="val" id="s-neg">—</div></div>
+  <div class="stat green"><div class="lbl">Reseñas completadas</div><div class="val" id="s-hec">—</div></div>
+  <div class="stat orange"><div class="lbl">Reseñas necesarias</div><div class="val" id="s-nec">—</div></div>
+  <div class="stat purple"><div class="lbl">Progreso total</div><div class="val" id="s-pct">—</div></div>
+</div>
+
+<div class="main">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('negocios',this)">Negocios</div>
+    <div class="tab" onclick="switchTab('historial',this)">Historial asignaciones</div>
+  </div>
+
+  <!-- TAB NEGOCIOS -->
+  <div id="tab-negocios">
+    <div class="toolbar">
+      <h2>Todos los negocios</h2>
+      <input type="text" id="buscador" placeholder="🔍 Buscar negocio..." style="width:220px;padding:7px 12px;font-size:13px" oninput="filtrar()">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Negocio</th>
+            <th>Progreso</th>
+            <th>Prioridad</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB HISTORIAL -->
+  <div id="tab-historial" style="display:none">
+    <div class="toolbar"><h2>Últimas asignaciones (/pedir)</h2></div>
+    <div class="table-wrap" style="padding:0 20px">
+      <div id="historial-list"><p style="color:#8b949e;padding:40px;text-align:center">Cargando...</p></div>
+    </div>
+  </div>
+
+  <div class="report-section" id="report-section">
+    <h3>🤖 Análisis IA (Gemini)</h3>
+    <div class="report-body" id="report-body">Generando...</div>
+  </div>
+</div>
+
+<!-- Modal añadir/editar -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modal-title">Añadir negocio</h3>
+    <input type="hidden" id="edit-id">
+    <div class="fg">
+      <label>Nombre del negocio *</label>
+      <input id="f-nombre" type="text" placeholder="Ej: Restaurante El Ejemplo">
+    </div>
+    <div class="fg">
+      <label>Enlace Google Maps *</label>
+      <input id="f-enlace" type="url" placeholder="https://maps.google.com/...">
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label>Reseñas necesarias</label>
+        <input id="f-total" type="number" value="10" min="1">
+      </div>
+      <div class="fg">
+        <label>Reseñas hechas</label>
+        <input id="f-hechas" type="number" value="0" min="0">
+      </div>
+    </div>
+    <div class="fg">
+      <label>Prioridad</label>
+      <select id="f-prioridad">
+        <option value="1">1 — Baja</option>
+        <option value="2">2 — Normal</option>
+        <option value="3" selected>3 — Media</option>
+        <option value="4">4 — Alta</option>
+        <option value="5">5 — Urgente</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Indicaciones para los textos de las reseñas</label>
+      <textarea id="f-desc" placeholder="Ej: Mencionar el ambiente acogedor, la calidad del servicio, los platos principales..."></textarea>
+    </div>
+    <div class="fg" id="fg-activo" style="display:none">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input id="f-activo" type="checkbox" style="width:auto"> Activo
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-green" onclick="guardar()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allNegocios = [];
+
+// ── DATA ──────────────────────────────────────────────────────────────────────
+async function cargar() {
+  const [neg, stats] = await Promise.all([
+    fetch('/api/negocios').then(r => r.json()).catch(() => []),
+    fetch('/api/stats').then(r => r.json()).catch(() => ({})),
+  ]);
+  allNegocios = neg;
+  renderStats(stats);
+  renderTabla(neg);
+}
+
+async function cargarHistorial() {
+  const data = await fetch('/api/asignaciones').then(r => r.json()).catch(() => []);
+  const el = document.getElementById('historial-list');
+  if (!data.length) { el.innerHTML = '<p style="color:#8b949e;padding:40px;text-align:center">Sin asignaciones aún.</p>'; return; }
+  el.innerHTML = data.map(a => `
+    <div class="hist-item">
+      <div>
+        <div class="hist-neg">${a.nombre || '—'}</div>
+        <div class="hist-meta">👤 ${a.user_tag || a.user_id} · 📍 Canal ${a.canal_id} · ${fmtFecha(a.fecha)}</div>
+      </div>
+      <div class="hist-cant">+${a.cantidad} reseñas</div>
+    </div>`).join('');
+}
+
+function fmtFecha(f) {
+  if (!f) return '';
+  return new Date(f).toLocaleString('es-ES', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderStats(s) {
+  document.getElementById('s-neg').textContent = s.negocios ?? '—';
+  document.getElementById('s-hec').textContent = s.hechas   ?? '—';
+  document.getElementById('s-nec').textContent = s.necesarias ?? '—';
+  const pct = s.necesarias > 0 ? Math.round((s.hechas / s.necesarias) * 100) : 0;
+  document.getElementById('s-pct').textContent = pct + '%';
+}
+
+function prioBadge(p) {
+  const map = { 5:['b-p5','Urgente'], 4:['b-p4','Alta'], 3:['b-p3','Media'], 2:['b-p2','Normal'], 1:['b-p1','Baja'] };
+  const [cls, label] = map[p] || map[1];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function renderTabla(data) {
+  const tbody = document.getElementById('tabla');
+  if (!data.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No hay negocios. Añade uno con el botón de arriba.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(n => {
+    const pct   = n.total > 0 ? Math.round((n.hechas / n.total) * 100) : 0;
+    const color = pct >= 100 ? '#3fb950' : pct >= 60 ? '#d29922' : '#f85149';
+    return `<tr>
+      <td>
+        <a href="${n.enlace}" target="_blank" rel="noopener" style="font-weight:600">${esc(n.nombre)}</a>
+        ${n.descripcion ? `<div style="font-size:11px;color:#8b949e;margin-top:2px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.descripcion)}</div>` : ''}
+      </td>
+      <td>
+        <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,pct)}%;background:${color}"></div></div>
+        <div class="prog-lbl">${n.hechas}/${n.total} (${pct}%)</div>
+      </td>
+      <td>${prioBadge(n.prioridad)}</td>
+      <td><span class="badge ${n.activo ? 'b-on' : 'b-off'}">${n.activo ? 'Activo' : 'Pausado'}</span></td>
+      <td class="actions">
+        <button class="btn-edit btn-sm" onclick="editar(${n.id})">✏️ Editar</button>
+        <button class="btn-del  btn-sm" onclick="eliminar(${n.id},'${esc(n.nombre)}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrar() {
+  const q = document.getElementById('buscador').value.toLowerCase();
+  renderTabla(allNegocios.filter(n => n.nombre.toLowerCase().includes(q)));
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-negocios').style.display  = name === 'negocios'  ? '' : 'none';
+  document.getElementById('tab-historial').style.display = name === 'historial' ? '' : 'none';
+  if (name === 'historial') cargarHistorial();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function abrirModal(n = null) {
+  document.getElementById('modal-title').textContent = n ? 'Editar negocio' : 'Añadir negocio';
+  document.getElementById('edit-id').value   = n?.id ?? '';
+  document.getElementById('f-nombre').value  = n?.nombre ?? '';
+  document.getElementById('f-enlace').value  = n?.enlace ?? '';
+  document.getElementById('f-total').value   = n?.total  ?? 10;
+  document.getElementById('f-hechas').value  = n?.hechas ?? 0;
+  document.getElementById('f-prioridad').value = n?.prioridad ?? 3;
+  document.getElementById('f-desc').value    = n?.descripcion ?? '';
+  document.getElementById('f-activo').checked = n?.activo !== 0;
+  document.getElementById('fg-activo').style.display = n ? '' : 'none';
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('f-nombre').focus();
+}
+
+function cerrarModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function editar(id) {
+  abrirModal(allNegocios.find(n => n.id === id));
+}
+
+async function guardar() {
+  const id     = document.getElementById('edit-id').value;
+  const nombre = document.getElementById('f-nombre').value.trim();
+  const enlace = document.getElementById('f-enlace').value.trim();
+  if (!nombre || !enlace) return alert('Nombre y enlace son obligatorios.');
+
+  const body = {
+    nombre, enlace,
+    total:      parseInt(document.getElementById('f-total').value)    || 10,
+    hechas:     parseInt(document.getElementById('f-hechas').value)   || 0,
+    prioridad:  parseInt(document.getElementById('f-prioridad').value) || 3,
+    descripcion: document.getElementById('f-desc').value.trim(),
+    activo:     document.getElementById('f-activo').checked,
+  };
+
+  const url    = id ? `/api/negocios/${id}` : '/api/negocios';
+  const method = id ? 'PUT' : 'POST';
+  await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  cerrarModal();
+  cargar();
+}
+
+async function eliminar(id, nombre) {
+  if (!confirm(`¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`)) return;
+  await fetch(`/api/negocios/${id}`, { method: 'DELETE' });
+  cargar();
+}
+
+// ── REPORTE ───────────────────────────────────────────────────────────────────
+async function generarReporte() {
+  const sec  = document.getElementById('report-section');
+  const body = document.getElementById('report-body');
+  sec.style.display = '';
+  body.textContent  = '⏳ Generando reporte con IA...';
+  sec.scrollIntoView({ behavior: 'smooth' });
+
+  try {
+    const r = await fetch('/api/reporte').then(x => x.json());
+    if (r.ia) {
+      body.textContent = r.ia;
+    } else {
+      const pct = r.stats.necesarias > 0 ? Math.round((r.stats.hechas / r.stats.necesarias) * 100) : 0;
+      body.textContent = `Progreso: ${r.stats.hechas}/${r.stats.necesarias} (${pct}%)\nNegocios activos: ${r.stats.negocios}\n\n⚠️ Para análisis IA añade GEMINI_API_KEY en las variables de Railway.`;
+    }
+  } catch {
+    body.textContent = '❌ Error generando el reporte.';
+  }
+}
+
+// ── UTIL ──────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('overlay').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal(); });
+
+cargar();
+setInterval(cargar, 30000);
+</script>
+</body>
+</html>
