@@ -213,6 +213,11 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
+  if (texto === '/telegram_test') {
+    const ok = await notificar('✅ *Prueba de Telegram* — El bot de Discord está conectado correctamente.');
+    return message.reply(ok === false ? '❌ Telegram no responde. Revisa TELEGRAM_TOKEN y TELEGRAM_CHAT_ID en Railway.' : '✅ Mensaje enviado a Telegram. Revisa tu Telegram.');
+  }
+
   if (texto === '/reporte') {
     const todos = db.getAll();
     const stats = db.stats();
