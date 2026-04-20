@@ -356,6 +356,9 @@ client.once('ready', async () => {
 
   console.log('⏰ Schedulers activos');
   await notificar(`🟢 *Bot online*\n🤖 ${client.user.tag}`);
+
+  // Enviar instrucciones a todos los tickets al arrancar
+  await enviarBienvenidaBot();
 });
 
 module.exports = client;
