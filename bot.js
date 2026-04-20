@@ -73,7 +73,17 @@ async function registrarComandos() {
     return;
   }
   const commands = [
-    new SlashCommandBuilder().setName('pedir').setDescription('Recibe reseñas para hacer').toJSON(),
+    new SlashCommandBuilder()
+      .setName('pedir')
+      .setDescription('Recibe reseñas para hacer')
+      .addIntegerOption(opt =>
+        opt.setName('cantidad')
+          .setDescription('¿Cuántas reseñas quieres hacer? (1-5)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(5)
+      )
+      .toJSON(),
     new SlashCommandBuilder().setName('reporte').setDescription('Ver estado y reporte IA de las reseñas').toJSON(),
   ];
   const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
@@ -86,13 +96,15 @@ async function registrarComandos() {
 }
 
 async function handlePedir(interaction) {
+  const pedida    = interaction.options.getInteger('cantidad');
   const pendientes = db.getActive();
+
   if (!pendientes.length) {
-    return interaction.reply({ content: '✅ No hay reseñas pendientes en este momento.', ephemeral: true });
+    return interaction.reply({ content: '⚠️ Ahora mismo no hay reseñas disponibles. El administrador añadirá negocios pronto.' });
   }
 
   const negocio  = pendientes[0];
-  const cantidad = Math.min(5, negocio.total - negocio.hechas);
+  const cantidad = Math.min(pedida, negocio.total - negocio.hechas);
 
   const msg = [
     negocio.enlace,
