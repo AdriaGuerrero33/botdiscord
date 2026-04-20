@@ -75,11 +75,11 @@ async function registrarComandos() {
   const commands = [
     new SlashCommandBuilder()
       .setName('pedir')
-      .setDescription('Recibe reseñas para hacer')
+      .setDescription('Recibe reseñas para hacer (indica cuántas, máx 5)')
       .addIntegerOption(opt =>
         opt.setName('cantidad')
-          .setDescription('¿Cuántas reseñas quieres hacer? (1-5)')
-          .setRequired(true)
+          .setDescription('Cuántas reseñas quieres hacer (1-5)')
+          .setRequired(false)
           .setMinValue(1)
           .setMaxValue(5)
       )
@@ -96,8 +96,12 @@ async function registrarComandos() {
 }
 
 async function handlePedir(interaction) {
-  const pedida    = interaction.options.getInteger('cantidad');
+  const pedida     = interaction.options.getInteger('cantidad');
   const pendientes = db.getActive();
+
+  if (!pedida) {
+    return interaction.reply({ content: '❌ Indica cuántas reseñas quieres hacer. Ejemplo: `/pedir 3`', ephemeral: true });
+  }
 
   if (!pendientes.length) {
     return interaction.reply({ content: '⚠️ Ahora mismo no hay reseñas disponibles. El administrador añadirá negocios pronto.' });
