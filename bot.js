@@ -174,6 +174,59 @@ client.on('interactionCreate', async (interaction) => {
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
+
+  // Comandos de texto (fallback para cuando slash no está registrado)
+  const texto = message.content.trim();
+
+  if (texto.startsWith('/pedir')) {
+    const partes   = texto.split(/\s+/);
+    const cantidad = parseInt(partes[1]);
+
+    if (!cantidad || cantidad < 1 || cantidad > 5) {
+      return message.reply('❌ Indica cuántas reseñas quieres hacer. Ejemplo: `/pedir 3` (máximo 5)');
+    }
+
+    const pendientes = db.getActive();
+    if (!pendientes.length) {
+      return message.reply('⚠️ Ahora mismo no hay reseñas disponibles. El administrador añadirá negocios pronto.');
+    }
+
+    const negocio = pendientes[0];
+    const asignadas = Math.min(cantidad, negocio.total - negocio.hechas);
+
+    const msg = [
+      negocio.enlace,
+      '',
+      `**CANTIDAD:** ${asignadas}/${negocio.total}`,
+      '',
+      '**INDICACIONES PARA LOS TEXTOS:**',
+      negocio.descripcion?.trim() || '_Sin indicaciones específicas._',
+      '',
+      '# NO USAR BAJO NINGÚN CONCEPTO IA',
+      '## SI SE USA IA SERÁ PENALIZADO',
+      '### También puedes revisar el perfil de la empresa y lo que tienen para hacer un buen texto. (Simplemente tiene que verse realista).',
+    ].join('\n');
+
+    await message.reply(msg);
+    asignDb.add({ negocio_id: negocio.id, user_id: message.author.id, user_tag: message.author.tag, canal_id: message.channel.id, cantidad: asignadas });
+    await notificar(`📋 *Nueva asignación /pedir*\n👤 ${message.author.tag}\n🏪 ${negocio.nombre}\n📝 ${asignadas} reseñas`);
+    return;
+  }
+
+  if (texto === '/reporte') {
+    const todos = db.getAll();
+    const stats = db.stats();
+    const pct   = stats.necesarias > 0 ? Math.round((stats.hechas / stats.necesarias) * 100) : 0;
+    let rep = `📊 **Reporte** — ${stats.hechas}/${stats.necesarias} (${pct}%)\n`;
+    todos.slice(0, 8).forEach(n => {
+      const p = n.total > 0 ? Math.round((n.hechas / n.total) * 100) : 0;
+      const icon = !n.activo ? '⏸️' : p >= 100 ? '✅' : p >= 50 ? '🟡' : '🔴';
+      rep += `${icon} **${n.nombre}** — ${n.hechas}/${n.total}\n`;
+    });
+    return message.reply(rep);
+  }
+
+  // Detección de enlaces Google Maps en tickets
   if (!PATRON_TICKET.test(message.channel.name)) return;
 
   const links = extraerLinks(message.content);
