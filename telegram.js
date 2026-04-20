@@ -170,10 +170,47 @@ async function notificarAudio(texto) {
   }
 }
 
-// ── REPORTE DIARIO 09:00 ──────────────────────────────────────────────────────
+// ── REPORTE NOCTURNO 21:00 ────────────────────────────────────────────────────
+async function enviarReporteNoche() {
+  try {
+    const { negocios, asignaciones } = require('./database');
+    const stats   = negocios.stats();
+    const daily   = asignaciones.getDailyStats();
+    const todos   = negocios.getAll();
+    const pct     = stats.necesarias > 0 ? Math.round((stats.hechas / stats.necesarias) * 100) : 0;
+    const usuarios = daily.usuarios.length > 0 ? daily.usuarios.join(', ') : 'ninguno';
+
+    // Texto para notificar en Telegram (con Markdown)
+    const textoMsg =
+      `🌙 *Resumen del día — RSMoney*\n\n` +
+      `📋 Reseñas pedidas hoy: *${daily.pedidas}*\n` +
+      `📤 Reseñas enviadas hoy: *${daily.enviadas}*\n` +
+      `✅ Reseñas válidas: *${daily.validas}*\n` +
+      `👥 Usuarios activos: ${usuarios}\n\n` +
+      `📊 *Progreso total:* ${stats.hechas}/${stats.necesarias} (${pct}%)`;
+
+    await notificar(textoMsg);
+
+    // Audio con el resumen
+    const textoAudio =
+      `Resumen nocturno de RSMoney. ` +
+      `Hoy se han pedido ${daily.pedidas} reseñas y se han enviado ${daily.enviadas}. ` +
+      `${daily.validas} han sido validadas correctamente. ` +
+      `Usuarios activos: ${daily.usuarios.length}. ` +
+      `Progreso total: ${pct} por ciento.`;
+
+    await notificarAudio(textoAudio);
+    console.log('[Telegram] Reporte nocturno enviado');
+  } catch (err) {
+    console.error('[Telegram] Error reporte noche:', err.message);
+  }
+}
+
+// ── REPORTES PROGRAMADOS ──────────────────────────────────────────────────────
 function iniciarReporteDiario() {
-  cron.schedule('0 9 * * *', enviarReporteAudioCompleto, { timezone: 'Europe/Madrid' });
-  console.log('[Telegram] Reporte diario de audio a las 09:00 (Madrid)');
+  cron.schedule('0 9 * * *',  enviarReporteAudioCompleto, { timezone: 'Europe/Madrid' });
+  cron.schedule('0 21 * * *', enviarReporteNoche,         { timezone: 'Europe/Madrid' });
+  console.log('[Telegram] Reportes: 09:00 mañana + 21:00 noche (Madrid)');
 }
 
 module.exports = { notificar, notificarAudio, iniciarReporteDiario };

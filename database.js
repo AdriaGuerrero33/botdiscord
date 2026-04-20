@@ -90,6 +90,24 @@ const asignaciones = {
       .slice(-limit).reverse()
       .map(a => ({ ...a, nombre: d.negocios.find(n => n.id === a.negocio_id)?.nombre || '—' }));
   },
+  getPendingCount(user_id) {
+    const d = load();
+    const asignadas = d.asignaciones.filter(a => a.user_id === user_id).reduce((s, a) => s + a.cantidad, 0);
+    const enviadas  = d.reseñas.filter(r => r.user_id === user_id).length;
+    return Math.max(0, asignadas - enviadas);
+  },
+  getDailyStats(fecha) {
+    const hoy = fecha || new Date().toISOString().split('T')[0];
+    const d   = load();
+    const asigns  = d.asignaciones.filter(a => a.fecha?.startsWith(hoy));
+    const resenas = d.reseñas.filter(r => r.fecha?.startsWith(hoy));
+    return {
+      pedidas:  asigns.reduce((s, a) => s + a.cantidad, 0),
+      enviadas: resenas.length,
+      validas:  resenas.filter(r => r.valida === 1).length,
+      usuarios: [...new Set(asigns.map(a => a.user_tag).filter(Boolean))],
+    };
+  },
 };
 
 // ── RESEÑAS ───────────────────────────────────────────────────────────────────
