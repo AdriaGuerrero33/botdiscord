@@ -246,10 +246,7 @@ client.once('ready', async () => {
   cron.schedule('0 15 * * 0,1,2,3,5,6', enviarDiario, { timezone: 'Europe/Madrid' });
 
   // Reporte de audio diario a las 9:00 por Telegram
-  iniciarReporteDiario(() => ({
-    negocios: db.getAll(),
-    stats:    db.stats(),
-  }));
+  iniciarReporteDiario();
 
   console.log('⏰ Schedulers activos: 15:00 diario + 15:00 jueves + 09:00 audio Telegram');
   await notificar(`🟢 *Bot online*\n🤖 ${client.user.tag}`);
