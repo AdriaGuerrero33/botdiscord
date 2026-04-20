@@ -33,6 +33,57 @@ Pasa todos los enlaces de lo que hayas hecho desde el sabado hasta hoy DESPUES d
 
 const MENSAJE_DIARIO = `# @everyone PEDIR MAS RESEÑAS en vuestro ticket`;
 
+const MENSAJE_BIENVENIDA_BOT = `# 📢 Actualización importante — Nuevo sistema de reseñas
+
+A partir de ahora usamos un bot para gestionar las reseñas de forma más ordenada. Lee esto con atención:
+
+---
+
+## ✅ Cómo funciona
+
+**1. Pide reseñas con \`/pedir\`**
+Escribe \`/pedir 3\` (o el número que quieras, máximo 5) y el bot te mandará el enlace del negocio con todas las indicaciones. Solo puedes tener **hasta 15 reseñas pendientes** antes de entregar.
+
+**2. Entrega los enlaces con \`/revisar\`**
+Cuando hayas hecho las reseñas, escribe \`/revisar\` y pega los enlaces en el mismo mensaje. El bot los verificará automáticamente.
+
+**3. Otras plataformas**
+Si haces reseñas en Trustpilot, TripAdvisor u otras webs, avísanos con:
+- \`/trustpilot\`
+- \`/tripadvisor\`
+- \`/otros\`
+
+---
+
+## ⭐ IMPORTANTE — Hazte Local Guide en Google
+
+Para que tus reseñas tengan más peso y no sean eliminadas por Google, **regístrate como Local Guide**:
+
+1. Ve a: **maps.google.com**
+2. Inicia sesión con tu cuenta de Google
+3. Haz clic en el menú → **"Contribuir"**
+4. Únete al programa **Local Guides**
+
+Cuanto más nivel de Local Guide tengas, más valor tienen tus reseñas y menos probabilidad de que las eliminen. Es gratis y muy fácil.
+
+---
+
+> ⚠️ Todos los comandos funcionan **solo en tu ticket**. No los uses en otros canales.`;
+
+async function enviarBienvenidaBot() {
+  const guild = client.guilds.cache.first();
+  if (!guild) return;
+  await guild.channels.fetch();
+  const tickets = guild.channels.cache.filter(ch => ch.isTextBased() && PATRON_TICKET.test(ch.name));
+  let n = 0;
+  for (const [, ch] of tickets) {
+    try { await ch.send(MENSAJE_BIENVENIDA_BOT); n++; } catch (e) {}
+    await sleep(1000);
+  }
+  await notificar(`📢 *Mensaje de bienvenida enviado*\nTickets: ${n}`);
+  console.log(`[Bienvenida] Enviado a ${n} tickets`);
+}
+
 async function enviarJueves() {
   const guild = client.guilds.cache.first();
   if (!guild) return;
@@ -259,6 +310,13 @@ client.on('messageCreate', async (message) => {
     const plataforma = PLATAFORMAS_TEXT[texto];
     await notificar(`📢 *Reseña en ${plataforma}*\n👤 ${message.author.tag}\n📌 Canal: ${message.channel.name}`);
     return message.reply(`✅ Avisado al admin de tu reseña en **${plataforma}**. ¡Gracias!`);
+  }
+
+  // /enviar_bienvenida (solo admin)
+  if (texto === '/enviar_bienvenida') {
+    await message.reply('📢 Enviando mensaje de bienvenida a todos los tickets...');
+    await enviarBienvenidaBot();
+    return message.reply('✅ Mensaje enviado a todos los tickets.');
   }
 
   // /telegram_test
