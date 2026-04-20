@@ -75,6 +75,9 @@ async function registrarComandos() {
       .toJSON(),
     new SlashCommandBuilder().setName('reporte').setDescription('Ver estado de reseñas').toJSON(),
     new SlashCommandBuilder().setName('revisar').setDescription('Entrega tus enlaces de reseñas para revisión').toJSON(),
+    new SlashCommandBuilder().setName('trustpilot').setDescription('Avisa al admin de que has hecho una reseña en Trustpilot').toJSON(),
+    new SlashCommandBuilder().setName('tripadvisor').setDescription('Avisa al admin de que has hecho una reseña en TripAdvisor').toJSON(),
+    new SlashCommandBuilder().setName('otros').setDescription('Avisa al admin de que has hecho una reseña en otra plataforma').toJSON(),
   ];
   const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
   try {
@@ -158,7 +161,7 @@ client.on('interactionCreate', async (interaction) => {
   try {
     const reply = (msg) => interaction.replied ? interaction.followUp({ content: msg }) : interaction.reply({ content: msg });
 
-    if (interaction.commandName === 'pedir' || interaction.commandName === 'revisar') {
+    if (['pedir', 'revisar', 'trustpilot', 'tripadvisor', 'otros'].includes(interaction.commandName)) {
       if (!PATRON_TICKET.test(interaction.channel?.name)) {
         return interaction.reply({ content: '❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).', ephemeral: true });
       }
@@ -187,6 +190,13 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.commandName === 'revisar') {
       await procesarRevisar(interaction.user.id, interaction.user.tag, [], reply);
+    }
+
+    const PLATAFORMAS = { trustpilot: 'Trustpilot', tripadvisor: 'TripAdvisor', otros: 'Otras plataformas' };
+    if (PLATAFORMAS[interaction.commandName]) {
+      const plataforma = PLATAFORMAS[interaction.commandName];
+      await notificar(`📢 *Reseña en ${plataforma}*\n👤 ${interaction.user.tag}\n📌 Canal: ${interaction.channel?.name}`);
+      await reply(`✅ Avisado al admin de tu reseña en **${plataforma}**. ¡Gracias!`);
     }
   } catch (err) {
     console.error('[Slash]', err.message);
@@ -238,6 +248,17 @@ client.on('messageCreate', async (message) => {
       rep += `${icon} **${n.nombre}** — ${n.hechas}/${n.total}\n`;
     });
     return message.reply(rep);
+  }
+
+  // /trustpilot /tripadvisor /otros
+  const PLATAFORMAS_TEXT = { '/trustpilot': 'Trustpilot', '/tripadvisor': 'TripAdvisor', '/otros': 'Otras plataformas' };
+  if (PLATAFORMAS_TEXT[texto]) {
+    if (!PATRON_TICKET.test(message.channel.name)) {
+      return message.reply('❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).');
+    }
+    const plataforma = PLATAFORMAS_TEXT[texto];
+    await notificar(`📢 *Reseña en ${plataforma}*\n👤 ${message.author.tag}\n📌 Canal: ${message.channel.name}`);
+    return message.reply(`✅ Avisado al admin de tu reseña en **${plataforma}**. ¡Gracias!`);
   }
 
   // /telegram_test
