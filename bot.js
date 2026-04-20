@@ -158,6 +158,12 @@ client.on('interactionCreate', async (interaction) => {
   try {
     const reply = (msg) => interaction.replied ? interaction.followUp({ content: msg }) : interaction.reply({ content: msg });
 
+    if (interaction.commandName === 'pedir' || interaction.commandName === 'revisar') {
+      if (!PATRON_TICKET.test(interaction.channel?.name)) {
+        return interaction.reply({ content: '❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).', ephemeral: true });
+      }
+    }
+
     if (interaction.commandName === 'pedir') {
       const cantidad = interaction.options.getInteger('cantidad');
       await procesarPedir(interaction.user.id, interaction.user.tag, interaction.channelId, cantidad, reply);
@@ -198,6 +204,9 @@ client.on('messageCreate', async (message) => {
 
   // /pedir N
   if (texto.startsWith('/pedir')) {
+    if (!PATRON_TICKET.test(message.channel.name)) {
+      return message.reply('❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).');
+    }
     const n = parseInt(texto.split(/\s+/)[1], 10);
     return procesarPedir(
       message.author.id, message.author.tag, message.channel.id, n,
@@ -207,6 +216,9 @@ client.on('messageCreate', async (message) => {
 
   // /revisar [links...]
   if (texto.startsWith('/revisar')) {
+    if (!PATRON_TICKET.test(message.channel.name)) {
+      return message.reply('❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).');
+    }
     const links = extraerLinks(texto);
     return procesarRevisar(
       message.author.id, message.author.tag, links,
