@@ -193,22 +193,32 @@ async function procesarRevisar(userId, userTag, links, responder) {
 
   let resultado = `🔍 **Revisando ${links.length} reseña(s)...**\n\n`;
   let validas = 0, duplicadas = 0, eliminadas = 0;
+  const linksValidas = [], linksEliminadas = [], linksDuplicadas = [];
 
   for (const link of links) {
     const res = await verificar(link, userId, userTag, null);
     resultado += `${res.msg}\n`;
-    if (res.estado === 'valida')     { validas++;     db.getActive(); }
-    if (res.estado === 'duplicada')  { duplicadas++;  }
-    if (res.estado === 'eliminada')  { eliminadas++;  }
+    if (res.estado === 'valida')    { validas++;    db.getActive(); linksValidas.push(link); }
+    if (res.estado === 'duplicada') { duplicadas++; linksDuplicadas.push(link); }
+    if (res.estado === 'eliminada') { eliminadas++; linksEliminadas.push(link); }
   }
 
   resultado += `\n**Resumen:** ✅ ${validas} válidas · ⚠️ ${duplicadas} duplicadas · ❌ ${eliminadas} eliminadas`;
   if (validas > 0) resultado += `\n\n¡Buen trabajo! Sigue así 💪`;
 
   await responder(resultado);
-  if (validas > 0) {
-    await notificar(`✅ *Revisión completada*\n👤 ${userTag}\n✅ ${validas} válidas · ❌ ${eliminadas} eliminadas`);
-  }
+
+  // Siempre notificar a Telegram con el detalle completo
+  let telegramMsg =
+    `📋 *Revisión de reseñas*\n` +
+    `👤 ${userTag}\n` +
+    `✅ ${validas} válidas · ⚠️ ${duplicadas} duplicadas · ❌ ${eliminadas} eliminadas\n`;
+
+  if (linksValidas.length)    telegramMsg += `\n✅ *Válidas:*\n${linksValidas.join('\n')}`;
+  if (linksEliminadas.length) telegramMsg += `\n❌ *Eliminadas:*\n${linksEliminadas.join('\n')}`;
+  if (linksDuplicadas.length) telegramMsg += `\n⚠️ *Duplicadas:*\n${linksDuplicadas.join('\n')}`;
+
+  await notificar(telegramMsg);
 }
 
 // ── INTERACTION HANDLERS ──────────────────────────────────────────────────────
