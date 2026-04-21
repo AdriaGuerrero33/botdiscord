@@ -129,6 +129,10 @@ async function registrarComandos() {
     new SlashCommandBuilder().setName('trustpilot').setDescription('Avisa al admin de que has hecho una reseña en Trustpilot').toJSON(),
     new SlashCommandBuilder().setName('tripadvisor').setDescription('Avisa al admin de que has hecho una reseña en TripAdvisor').toJSON(),
     new SlashCommandBuilder().setName('otros').setDescription('Avisa al admin de que has hecho una reseña en otra plataforma').toJSON(),
+    new SlashCommandBuilder()
+      .setName('avisar').setDescription('Avisa al admin de que necesitas algo importante')
+      .addStringOption(o => o.setName('mensaje').setDescription('¿Qué necesitas?').setRequired(false))
+      .toJSON(),
   ];
   const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
   try {
@@ -143,7 +147,7 @@ function construirMensajePedir(negocio, cantidad) {
   return [
     negocio.enlace,
     '',
-    `**CANTIDAD:** ${cantidad}/${negocio.total}`,
+    `**CANTIDAD:** ${cantidad}`,
     '',
     '**INDICACIONES PARA LOS TEXTOS:**',
     negocio.descripcion?.trim() || '_Sin indicaciones específicas._',
@@ -172,7 +176,9 @@ async function procesarPedir(userId, userTag, canalId, pedida, responder) {
     return responder('⚠️ No hay reseñas disponibles ahora. El administrador añadirá negocios pronto.');
   }
 
-  const negocio  = disponibles[0];
+  // Rotar negocios: asignar el que menos veces ha recibido este usuario
+  const conteo = asignDb.getCountPerNegocio(userId);
+  const negocio = disponibles.slice().sort((a, b) => (conteo[a.id] || 0) - (conteo[b.id] || 0))[0];
   const cantidad = Math.min(pedida, negocio.total - negocio.hechas);
 
   await responder(construirMensajePedir(negocio, cantidad));
@@ -212,7 +218,7 @@ client.on('interactionCreate', async (interaction) => {
   try {
     const reply = (msg) => interaction.replied ? interaction.followUp({ content: msg }) : interaction.reply({ content: msg });
 
-    if (['pedir', 'revisar', 'trustpilot', 'tripadvisor', 'otros'].includes(interaction.commandName)) {
+    if (['pedir', 'revisar', 'trustpilot', 'tripadvisor', 'otros', 'avisar'].includes(interaction.commandName)) {
       if (!PATRON_TICKET.test(interaction.channel?.name)) {
         return interaction.reply({ content: '❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).', ephemeral: true });
       }
@@ -248,6 +254,12 @@ client.on('interactionCreate', async (interaction) => {
       const plataforma = PLATAFORMAS[interaction.commandName];
       await notificar(`📢 *Reseña en ${plataforma}*\n👤 ${interaction.user.tag}\n📌 Canal: ${interaction.channel?.name}`);
       await reply(`✅ Avisado al admin de tu reseña en **${plataforma}**. ¡Gracias!`);
+    }
+
+    if (interaction.commandName === 'avisar') {
+      const extra = interaction.options.getString('mensaje') || '';
+      await notificar(`🚨 *Aviso urgente*\n👤 ${interaction.user.tag}\n📌 Canal: ${interaction.channel?.name}${extra ? `\n💬 ${extra}` : ''}`);
+      await reply('✅ Admin avisado. Te atenderá lo antes posible.');
     }
   } catch (err) {
     console.error('[Slash]', err.message);
@@ -310,6 +322,16 @@ client.on('messageCreate', async (message) => {
     const plataforma = PLATAFORMAS_TEXT[texto];
     await notificar(`📢 *Reseña en ${plataforma}*\n👤 ${message.author.tag}\n📌 Canal: ${message.channel.name}`);
     return message.reply(`✅ Avisado al admin de tu reseña en **${plataforma}**. ¡Gracias!`);
+  }
+
+  // /avisar [mensaje]
+  if (texto.startsWith('/avisar')) {
+    if (!PATRON_TICKET.test(message.channel.name)) {
+      return message.reply('❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).');
+    }
+    const extra = texto.replace('/avisar', '').trim();
+    await notificar(`🚨 *Aviso urgente*\n👤 ${message.author.tag}\n📌 Canal: ${message.channel.name}${extra ? `\n💬 ${extra}` : ''}`);
+    return message.reply('✅ Admin avisado. Te atenderá lo antes posible.');
   }
 
   // /enviar_bienvenida (solo admin)

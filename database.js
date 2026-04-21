@@ -90,6 +90,14 @@ const asignaciones = {
       .slice(-limit).reverse()
       .map(a => ({ ...a, nombre: d.negocios.find(n => n.id === a.negocio_id)?.nombre || '—' }));
   },
+  getCountPerNegocio(user_id) {
+    const d = load();
+    const counts = {};
+    d.asignaciones.filter(a => a.user_id === user_id).forEach(a => {
+      counts[a.negocio_id] = (counts[a.negocio_id] || 0) + a.cantidad;
+    });
+    return counts;
+  },
   getPendingCount(user_id) {
     const d = load();
     const asignadas = d.asignaciones.filter(a => a.user_id === user_id).reduce((s, a) => s + a.cantidad, 0);
