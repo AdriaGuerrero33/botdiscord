@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const cron = require('node-cron');
 const { negocios: db, asignaciones: asignDb, reseñas: reseñasDb } = require('./database');
 const { notificar, notificarAudio, iniciarReporteDiario } = require('./telegram');
@@ -130,6 +130,11 @@ async function registrarComandos() {
       .addIntegerOption(o => o.setName('cantidad').setDescription('Cuántas (1-5)').setRequired(false).setMinValue(1).setMaxValue(5))
       .toJSON(),
     new SlashCommandBuilder().setName('reporte').setDescription('Ver estado de reseñas').toJSON(),
+    new SlashCommandBuilder()
+      .setName('revisar').setDescription('[ADMIN] Ver enlaces de un ticket de sábado a viernes')
+      .addIntegerOption(o => o.setName('ticket').setDescription('Número del ticket (ej: 83)').setRequired(true))
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .toJSON(),
     new SlashCommandBuilder().setName('trustpilot').setDescription('Avisa al admin de que has hecho una reseña en Trustpilot').toJSON(),
     new SlashCommandBuilder().setName('tripadvisor').setDescription('Avisa al admin de que has hecho una reseña en TripAdvisor').toJSON(),
     new SlashCommandBuilder().setName('otros').setDescription('Avisa al admin de que has hecho una reseña en otra plataforma').toJSON(),
@@ -193,6 +198,55 @@ async function procesarPedir(userId, userTag, canalId, pedida, responder) {
   await notificar(`📋 *Nueva asignación*\n👤 ${userTag}\n🏪 ${negocio.nombre}\n📝 ${cantidad} reseñas`);
 }
 
+function getSemanaActual() {
+  const hoy = new Date();
+  const dia = hoy.getDay(); // 0=Dom … 6=Sáb
+  const diasDesdeSabado = dia === 6 ? 0 : dia + 1;
+  const sabado = new Date(hoy);
+  sabado.setDate(hoy.getDate() - diasDesdeSabado);
+  sabado.setHours(0, 0, 0, 0);
+  const viernes = new Date(sabado);
+  viernes.setDate(sabado.getDate() + 6);
+  viernes.setHours(23, 59, 59, 999);
+  return { desde: sabado.toISOString(), hasta: viernes.toISOString() };
+}
+
+async function revisarTicket(numeroTicket, guild, responder) {
+  await guild.channels.fetch();
+  const canal = guild.channels.cache.find(ch => ch.name === `ticket-${numeroTicket}`);
+  if (!canal) return responder(`❌ No encontré el canal \`ticket-${numeroTicket}\`.`);
+
+  const { desde, hasta } = getSemanaActual();
+  const enlaces = reseñasDb.getByCanal(canal.id, desde, hasta);
+
+  const fDesde = new Date(desde).toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'short' });
+  const fHasta = new Date(hasta).toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'short' });
+
+  if (!enlaces.length) {
+    return responder(`📭 **ticket-${numeroTicket}** no tiene reseñas registradas entre el ${fDesde} y el ${fHasta}.`);
+  }
+
+  let msg = `📋 **Reseñas de ticket-${numeroTicket}** (${fDesde} → ${fHasta})\n`;
+  msg += `Total: **${enlaces.length}** enlace(s)\n\n`;
+
+  for (const r of enlaces) {
+    const icono = r.valida === 1 ? '✅' : r.valida === 0 ? '❌' : '⏳';
+    const fecha = new Date(r.fecha).toLocaleDateString('es-ES');
+    msg += `${icono} ${r.user_tag} · ${fecha}\n${r.enlace}\n\n`;
+  }
+
+  // Discord tiene límite de 2000 chars; dividir si hace falta
+  const chunks = [];
+  while (msg.length > 1900) {
+    const corte = msg.lastIndexOf('\n\n', 1900);
+    chunks.push(msg.slice(0, corte));
+    msg = msg.slice(corte).trimStart();
+  }
+  chunks.push(msg);
+
+  for (const chunk of chunks) await responder(chunk);
+}
+
 // ── INTERACTION HANDLERS ──────────────────────────────────────────────────────
 
 client.on('interactionCreate', async (interaction) => {
@@ -204,6 +258,16 @@ client.on('interactionCreate', async (interaction) => {
       if (!PATRON_TICKET.test(interaction.channel?.name)) {
         return interaction.reply({ content: '❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).', ephemeral: true });
       }
+    }
+
+    if (interaction.commandName === 'revisar') {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: '❌ Solo los administradores pueden usar este comando.', ephemeral: true });
+      }
+      await interaction.deferReply({ ephemeral: true });
+      const num = interaction.options.getInteger('ticket');
+      await revisarTicket(num, interaction.guild, (msg) => interaction.followUp({ content: msg, ephemeral: true }));
+      return;
     }
 
     if (interaction.commandName === 'pedir') {
@@ -263,6 +327,16 @@ client.on('messageCreate', async (message) => {
       message.author.id, message.author.tag, message.channel.id, n,
       (msg) => message.reply(msg)
     );
+  }
+
+  // /revisar <número> (solo admins, cualquier canal)
+  if (texto.startsWith('/revisar')) {
+    if (!message.member?.permissions.has(PermissionFlagsBits.Administrator)) {
+      return message.reply('❌ Solo los administradores pueden usar este comando.');
+    }
+    const num = parseInt(texto.split(/\s+/)[1], 10);
+    if (isNaN(num)) return message.reply('❌ Indica el número del ticket. Ej: `/revisar 83`');
+    return revisarTicket(num, message.guild, (msg) => message.channel.send(msg));
   }
 
   // /reporte

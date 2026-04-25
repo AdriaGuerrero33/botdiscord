@@ -144,6 +144,14 @@ const reseñas = {
     const i = d.reseñas.findIndex(r => r.enlace === enlace);
     if (i !== -1) { d.reseñas[i].valida = v ? 1 : 0; save(d); }
   },
+  getByCanal(canal_id, desde, hasta) {
+    const d = load();
+    return d.reseñas.filter(r =>
+      r.canal_id === canal_id &&
+      r.fecha >= desde &&
+      r.fecha <= hasta
+    ).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  },
 };
 
 console.log('[DB] Base de datos JSON lista en', FILE);
