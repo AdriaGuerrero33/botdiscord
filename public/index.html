@@ -256,6 +256,7 @@ tbody tr:hover td{background:var(--hover)}
   <div class="tabs">
     <div class="tab active" onclick="switchTab('negocios',this)">🏪 Negocios</div>
     <div class="tab" onclick="switchTab('historial',this)">📋 Historial</div>
+    <div class="tab" onclick="switchTab('difusion',this)">📣 Difusión</div>
   </div>
 
   <!-- TAB NEGOCIOS -->
@@ -293,6 +294,31 @@ tbody tr:hover td{background:var(--hover)}
       <span class="section-title">Últimas asignaciones</span>
     </div>
     <div class="table-wrap" id="historial-list"></div>
+  </div>
+
+  <!-- TAB DIFUSIÓN -->
+  <div id="tab-difusion" style="display:none">
+    <div class="section-header">
+      <span class="section-title">📣 Enviar mensaje como el bot</span>
+    </div>
+    <div class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="radio" name="destino" value="tickets" checked> Todos los tickets
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="radio" name="destino" value="general"> Canal general
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="radio" name="destino" value="todos"> Todos (tickets + general)
+        </label>
+      </div>
+      <textarea id="difusion-msg" placeholder="Escribe aquí el mensaje que enviará el bot..." style="background:var(--input);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:14px;font-size:14px;resize:vertical;min-height:140px;font-family:inherit;outline:none"></textarea>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-primary" onclick="enviarDifusion()">📤 Enviar mensaje</button>
+        <span id="difusion-status" style="font-size:13px;color:var(--text2)"></span>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -446,7 +472,28 @@ function switchTab(name, el) {
   el.classList.add('active');
   document.getElementById('tab-negocios').style.display  = name==='negocios'  ? '' : 'none';
   document.getElementById('tab-historial').style.display = name==='historial' ? '' : 'none';
+  document.getElementById('tab-difusion').style.display  = name==='difusion'  ? '' : 'none';
   if (name === 'historial') cargarHistorial();
+}
+
+async function enviarDifusion() {
+  const msg    = document.getElementById('difusion-msg').value.trim();
+  const status = document.getElementById('difusion-status');
+  const dest   = document.querySelector('input[name="destino"]:checked').value;
+  if (!msg) { status.textContent = '⚠️ Escribe un mensaje primero.'; return; }
+  status.textContent = '⏳ Enviando...';
+  try {
+    const r = await fetch('/api/difusion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mensaje: msg, destino: dest }),
+    });
+    const d = await r.json();
+    status.textContent = d.ok ? `✅ Enviado a ${d.enviados} canal(es).` : '❌ Error: ' + d.error;
+    if (d.ok) document.getElementById('difusion-msg').value = '';
+  } catch(e) {
+    status.textContent = '❌ Error de red.';
+  }
 }
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────

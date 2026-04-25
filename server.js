@@ -3,6 +3,13 @@ const path    = require('path');
 const { negocios, asignaciones } = require('./database');
 const { analizar } = require('./gemini');
 
+const PATRON_TICKET = /^ticket-\d+$/;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function getClient() {
+  try { return require('./bot'); } catch { return null; }
+}
+
 const app = express();
 app.use(express.json());
 
@@ -62,6 +69,32 @@ app.delete('/api/negocios/all', (_, res) => {
 app.delete('/api/negocios/:id', (req, res) => {
   negocios.delete(req.params.id);
   res.json({ ok: true });
+});
+
+app.post('/api/difusion', async (req, res) => {
+  const { mensaje, destino } = req.body;
+  if (!mensaje) return res.status(400).json({ error: 'mensaje requerido' });
+  const client = getClient();
+  if (!client?.guilds) return res.status(503).json({ error: 'Bot de Discord no conectado' });
+  const guild = client.guilds.cache.first();
+  if (!guild) return res.status(503).json({ error: 'Sin servidor Discord' });
+  await guild.channels.fetch();
+
+  const canales = [];
+  if (destino === 'tickets' || destino === 'todos') {
+    guild.channels.cache.filter(ch => ch.isTextBased() && PATRON_TICKET.test(ch.name)).forEach(ch => canales.push(ch));
+  }
+  if (destino === 'general' || destino === 'todos') {
+    const ids = [process.env.CHANNEL_ANUNCIOS, process.env.CHANNEL_GENERAL].filter(Boolean);
+    ids.forEach(id => { const ch = guild.channels.cache.get(id); if (ch?.isTextBased()) canales.push(ch); });
+  }
+
+  let enviados = 0;
+  for (const ch of canales) {
+    try { await ch.send(mensaje); enviados++; } catch {}
+    await sleep(600);
+  }
+  res.json({ ok: true, enviados });
 });
 
 app.get('/api/reporte', async (_, res) => {
