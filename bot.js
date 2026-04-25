@@ -16,7 +16,13 @@ const client = new Client({
 const PATRON_TICKET    = /^ticket-\d+$/;
 const CHANNEL_ANUNCIOS = process.env.CHANNEL_ANUNCIOS;
 const CHANNEL_GENERAL  = process.env.CHANNEL_GENERAL;
+const CHANNEL_ADMIN    = process.env.CHANNEL_ADMIN;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function getAdminChannel(guild) {
+  if (CHANNEL_ADMIN) return guild.channels.cache.get(CHANNEL_ADMIN);
+  return guild.channels.cache.find(ch => ch.isTextBased() && ch.name === 'administradores');
+}
 
 const RESPUESTAS_RANDOM = [
   'oye papi para eso usa `/avisar` que te atiendo yo personalmente 😘',
@@ -430,14 +436,19 @@ client.on('messageCreate', async (message) => {
   // Solo tickets a partir de aquí
   if (!PATRON_TICKET.test(message.channel.name)) return;
 
-  // Links de Google Maps → validar automáticamente
+  // Links de Google Maps → registrar en silencio y reenviar a administradores
   const links = extraerLinks(message.content);
   if (links.length) {
+    const adminCh = getAdminChannel(message.guild);
     for (const link of links) {
       const res = await verificar(link, message.author.id, message.author.tag, message.channel.id);
-      await message.reply(res.msg);
+      const icono = res.estado === 'valida' ? '✅' : res.estado === 'duplicada' ? '⚠️' : '❌';
+      const estado = res.estado === 'valida' ? 'válida' : res.estado === 'duplicada' ? 'duplicada' : 'eliminada';
+      if (adminCh) {
+        await adminCh.send(`${icono} **${message.author.tag}** · ${message.channel.name} · ${estado}\n${link}`);
+      }
       if (res.estado !== 'valida') {
-        await notificar(`${res.estado === 'duplicada' ? '⚠️' : '❌'} *Reseña ${res.estado}*\n👤 ${message.author.tag}\n🔗 ${link}`);
+        await notificar(`${icono} *Reseña ${estado}*\n👤 ${message.author.tag}\n🔗 ${link}`);
       }
     }
     return;
