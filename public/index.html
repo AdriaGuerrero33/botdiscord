@@ -217,6 +217,7 @@ tbody tr:hover td{background:var(--hover)}
   </div>
   <div class="header-right">
     <div class="status-dot"><span class="dot"></span>Sistema activo</div>
+    <button class="btn btn-danger" onclick="eliminarTodos()" style="margin-right:8px">🗑 Eliminar todos</button>
     <button class="btn btn-primary" onclick="abrirModal()">+ Añadir negocio</button>
   </div>
 </header>
@@ -491,6 +492,12 @@ async function guardar() {
 async function eliminar(id, nombre) {
   if (!confirm(`¿Eliminar "${nombre}"? No se puede deshacer.`)) return;
   await fetch(`/api/negocios/${id}`, { method: 'DELETE' });
+  cargar();
+}
+
+async function eliminarTodos() {
+  if (!confirm('¿Eliminar TODOS los negocios? Esta acción no se puede deshacer.')) return;
+  await fetch('/api/negocios/all', { method: 'DELETE' });
   cargar();
 }
 

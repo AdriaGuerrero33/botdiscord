@@ -18,8 +18,13 @@ const CHANNEL_ANUNCIOS = process.env.CHANNEL_ANUNCIOS;
 const CHANNEL_GENERAL  = process.env.CHANNEL_GENERAL;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// Umbral de reseñas pendientes antes de bloquear al usuario
-const MAX_PENDIENTES = 15;
+const RESPUESTAS_RANDOM = [
+  'oye papi para eso usa `/avisar` que te atiendo yo personalmente 😘',
+  'babe esto no es un chat, usa `/avisar` si necesitas algo 💋',
+  'ey que soy un bot no tu puta asistente 😂 usa `/avisar` si necesitas ayuda de verdad',
+  'para hablar conmigo usa `/avisar` que yo no muerdo 😉',
+  'cariño esto no funciona así, usa `/avisar` para hablar con el admin 🥰',
+];
 
 // ── MENSAJES PROGRAMADOS ──────────────────────────────────────────────────────
 
@@ -125,7 +130,6 @@ async function registrarComandos() {
       .addIntegerOption(o => o.setName('cantidad').setDescription('Cuántas (1-5)').setRequired(false).setMinValue(1).setMaxValue(5))
       .toJSON(),
     new SlashCommandBuilder().setName('reporte').setDescription('Ver estado de reseñas').toJSON(),
-    new SlashCommandBuilder().setName('revisar').setDescription('Entrega tus enlaces de reseñas para revisión').toJSON(),
     new SlashCommandBuilder().setName('trustpilot').setDescription('Avisa al admin de que has hecho una reseña en Trustpilot').toJSON(),
     new SlashCommandBuilder().setName('tripadvisor').setDescription('Avisa al admin de que has hecho una reseña en TripAdvisor').toJSON(),
     new SlashCommandBuilder().setName('otros').setDescription('Avisa al admin de que has hecho una reseña en otra plataforma').toJSON(),
@@ -161,64 +165,32 @@ function construirMensajePedir(negocio, cantidad) {
 }
 
 async function procesarPedir(userId, userTag, canalId, pedida, responder) {
-  // Control de spam: demasiadas pendientes
-  const pendientes = asignDb.getPendingCount(userId);
-  if (pendientes >= MAX_PENDIENTES) {
-    return responder(`chiquitin entrega primero lo anterior con \`/revisar\` y revisaré si está bien un besito mi amor 💋\n*(Tienes ${pendientes} reseñas pendientes de entregar)*`);
-  }
-
   if (!pedida || isNaN(pedida) || pedida < 1 || pedida > 5) {
     return responder('❌ Indica cuántas reseñas quieres hacer. Ejemplo: `/pedir 3` (máximo 5)');
   }
 
-  const disponibles = db.getActive();
+  // Si pide demasiadas veces hoy, responder con personalidad
+  const requestsHoy = asignDb.getRequestsToday(userId);
+  if (requestsHoy >= 6) {
+    return responder('papi relájate un poco 😂 hazlas primero y luego pides más que me causas jaleo bebé 💋 cuando las tengas listas sigue pidiendo');
+  }
+
+  // Solo negocios donde el usuario no ha agotado su cupo personal
+  const conteo = asignDb.getCountPerNegocio(userId);
+  const disponibles = db.getActive().filter(n => (conteo[n.id] || 0) < n.total);
   if (!disponibles.length) {
     return responder('⚠️ No hay reseñas disponibles ahora. El administrador añadirá negocios pronto.');
   }
 
-  // Rotar negocios: asignar el que menos veces ha recibido este usuario
-  const conteo = asignDb.getCountPerNegocio(userId);
+  // Rotar: primero el negocio al que este usuario menos ha hecho
   const negocio = disponibles.slice().sort((a, b) => (conteo[a.id] || 0) - (conteo[b.id] || 0))[0];
-  const cantidad = Math.min(pedida, negocio.total - negocio.hechas);
+  const restanteUsuario = negocio.total - (conteo[negocio.id] || 0);
+  const restanteGlobal  = negocio.total - negocio.hechas;
+  const cantidad = Math.min(pedida, restanteUsuario, restanteGlobal);
 
   await responder(construirMensajePedir(negocio, cantidad));
   asignDb.add({ negocio_id: negocio.id, user_id: userId, user_tag: userTag, canal_id: canalId, cantidad });
   await notificar(`📋 *Nueva asignación*\n👤 ${userTag}\n🏪 ${negocio.nombre}\n📝 ${cantidad} reseñas`);
-}
-
-async function procesarRevisar(userId, userTag, links, responder) {
-  if (!links.length) {
-    return responder('📎 Pega los enlaces de tus reseñas aquí. Ejemplo:\n`/revisar https://maps.google.com/...`');
-  }
-
-  let resultado = `🔍 **Revisando ${links.length} reseña(s)...**\n\n`;
-  let validas = 0, duplicadas = 0, eliminadas = 0;
-  const linksValidas = [], linksEliminadas = [], linksDuplicadas = [];
-
-  for (const link of links) {
-    const res = await verificar(link, userId, userTag, null);
-    resultado += `${res.msg}\n`;
-    if (res.estado === 'valida')    { validas++;    db.getActive(); linksValidas.push(link); }
-    if (res.estado === 'duplicada') { duplicadas++; linksDuplicadas.push(link); }
-    if (res.estado === 'eliminada') { eliminadas++; linksEliminadas.push(link); }
-  }
-
-  resultado += `\n**Resumen:** ✅ ${validas} válidas · ⚠️ ${duplicadas} duplicadas · ❌ ${eliminadas} eliminadas`;
-  if (validas > 0) resultado += `\n\n¡Buen trabajo! Sigue así 💪`;
-
-  await responder(resultado);
-
-  // Siempre notificar a Telegram con el detalle completo
-  let telegramMsg =
-    `📋 *Revisión de reseñas*\n` +
-    `👤 ${userTag}\n` +
-    `✅ ${validas} válidas · ⚠️ ${duplicadas} duplicadas · ❌ ${eliminadas} eliminadas\n`;
-
-  if (linksValidas.length)    telegramMsg += `\n✅ *Válidas:*\n${linksValidas.join('\n')}`;
-  if (linksEliminadas.length) telegramMsg += `\n❌ *Eliminadas:*\n${linksEliminadas.join('\n')}`;
-  if (linksDuplicadas.length) telegramMsg += `\n⚠️ *Duplicadas:*\n${linksDuplicadas.join('\n')}`;
-
-  await notificar(telegramMsg);
 }
 
 // ── INTERACTION HANDLERS ──────────────────────────────────────────────────────
@@ -228,7 +200,7 @@ client.on('interactionCreate', async (interaction) => {
   try {
     const reply = (msg) => interaction.replied ? interaction.followUp({ content: msg }) : interaction.reply({ content: msg });
 
-    if (['pedir', 'revisar', 'trustpilot', 'tripadvisor', 'otros', 'avisar'].includes(interaction.commandName)) {
+    if (['pedir', 'trustpilot', 'tripadvisor', 'otros', 'avisar'].includes(interaction.commandName)) {
       if (!PATRON_TICKET.test(interaction.channel?.name)) {
         return interaction.reply({ content: '❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).', ephemeral: true });
       }
@@ -253,10 +225,6 @@ client.on('interactionCreate', async (interaction) => {
       const ia = await analizar(todos, stats);
       if (ia) texto += `\n🤖 **IA:**\n${ia}`;
       await interaction.editReply({ content: texto });
-    }
-
-    if (interaction.commandName === 'revisar') {
-      await procesarRevisar(interaction.user.id, interaction.user.tag, [], reply);
     }
 
     const PLATAFORMAS = { trustpilot: 'Trustpilot', tripadvisor: 'TripAdvisor', otros: 'Otras plataformas' };
@@ -293,18 +261,6 @@ client.on('messageCreate', async (message) => {
     const n = parseInt(texto.split(/\s+/)[1], 10);
     return procesarPedir(
       message.author.id, message.author.tag, message.channel.id, n,
-      (msg) => message.reply(msg)
-    );
-  }
-
-  // /revisar [links...]
-  if (texto.startsWith('/revisar')) {
-    if (!PATRON_TICKET.test(message.channel.name)) {
-      return message.reply('❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).');
-    }
-    const links = extraerLinks(texto);
-    return procesarRevisar(
-      message.author.id, message.author.tag, links,
       (msg) => message.reply(msg)
     );
   }
@@ -364,15 +320,26 @@ client.on('messageCreate', async (message) => {
     return message.reply(ok ? '✅ Audio enviado.' : '❌ Error enviando audio.');
   }
 
-  // Detección automática de links Google Maps en tickets
+  // Solo tickets a partir de aquí
   if (!PATRON_TICKET.test(message.channel.name)) return;
+
+  // Links de Google Maps → validar automáticamente
   const links = extraerLinks(message.content);
-  for (const link of links) {
-    const res = await verificar(link, message.author.id, message.author.tag, message.channel.id);
-    await message.reply(res.msg);
-    if (res.estado !== 'valida') {
-      await notificar(`${res.estado === 'duplicada' ? '⚠️' : '❌'} *Reseña ${res.estado}*\n👤 ${message.author.tag}\n🔗 ${link}`);
+  if (links.length) {
+    for (const link of links) {
+      const res = await verificar(link, message.author.id, message.author.tag, message.channel.id);
+      await message.reply(res.msg);
+      if (res.estado !== 'valida') {
+        await notificar(`${res.estado === 'duplicada' ? '⚠️' : '❌'} *Reseña ${res.estado}*\n👤 ${message.author.tag}\n🔗 ${link}`);
+      }
     }
+    return;
+  }
+
+  // Mensaje de texto sin comando → personalidad + redirigir a /avisar
+  if (!texto.startsWith('/')) {
+    const resp = RESPUESTAS_RANDOM[Math.floor(Math.random() * RESPUESTAS_RANDOM.length)];
+    return message.reply(resp);
   }
 });
 

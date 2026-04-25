@@ -54,6 +54,11 @@ app.put('/api/negocios/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/negocios/all', (_, res) => {
+  negocios.deleteAll();
+  res.json({ ok: true });
+});
+
 app.delete('/api/negocios/:id', (req, res) => {
   negocios.delete(req.params.id);
   res.json({ ok: true });

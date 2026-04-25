@@ -58,6 +58,11 @@ const negocios = {
     d.negocios = d.negocios.filter(n => n.id !== Number(id));
     save(d);
   },
+  deleteAll() {
+    const d = load();
+    d.negocios = [];
+    save(d);
+  },
   addHechas(id, n) {
     const d = load();
     const i = d.negocios.findIndex(x => x.id === Number(id));
@@ -89,6 +94,11 @@ const asignaciones = {
     return d.asignaciones
       .slice(-limit).reverse()
       .map(a => ({ ...a, nombre: d.negocios.find(n => n.id === a.negocio_id)?.nombre || '—' }));
+  },
+  getRequestsToday(user_id) {
+    const hoy = new Date().toISOString().split('T')[0];
+    const d = load();
+    return d.asignaciones.filter(a => a.user_id === user_id && a.fecha?.startsWith(hoy)).length;
   },
   getCountPerNegocio(user_id) {
     const d = load();
