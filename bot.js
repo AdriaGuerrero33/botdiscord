@@ -47,16 +47,19 @@ A partir de ahora usamos un bot para gestionar las reseñas de forma más ordena
 ## ✅ Cómo funciona
 
 **1. Pide reseñas con \`/pedir\`**
-Escribe \`/pedir 3\` (o el número que quieras, máximo 5) y el bot te mandará el enlace del negocio con todas las indicaciones. Solo puedes tener **hasta 15 reseñas pendientes** antes de entregar.
+Escribe \`/pedir 3\` (o el número que quieras, máximo 5) y el bot te mandará el enlace del negocio con todas las indicaciones.
 
-**2. Entrega los enlaces con \`/revisar\`**
-Cuando hayas hecho las reseñas, escribe \`/revisar\` y pega los enlaces en el mismo mensaje. El bot los verificará automáticamente.
+**2. Entrega los enlaces directamente en tu ticket**
+Cuando hayas hecho las reseñas, **pega los enlaces de Google Maps aquí** en tu ticket. El bot los registrará automáticamente. ~~\`/revisar\` ya no existe~~, no lo uses.
 
 **3. Otras plataformas**
 Si haces reseñas en Trustpilot, TripAdvisor u otras webs, avísanos con:
 - \`/trustpilot\`
 - \`/tripadvisor\`
 - \`/otros\`
+
+**4. ¿Necesitas ayuda?**
+Usa \`/avisar\` para que el admin te atienda personalmente.
 
 ---
 
