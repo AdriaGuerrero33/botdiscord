@@ -95,6 +95,11 @@ const asignaciones = {
       .slice(-limit).reverse()
       .map(a => ({ ...a, nombre: d.negocios.find(n => n.id === a.negocio_id)?.nombre || '—' }));
   },
+  getLastNegocioId(user_id) {
+    const d = load();
+    const last = d.asignaciones.filter(a => a.user_id === user_id).at(-1);
+    return last?.negocio_id ?? null;
+  },
   getRequestsToday(user_id) {
     const hoy = new Date().toISOString().split('T')[0];
     const d = load();

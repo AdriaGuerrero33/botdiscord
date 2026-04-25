@@ -212,18 +212,18 @@ async function procesarPedir(userId, userTag, canalId, pedida, responder) {
     return responder('papi relájate un poco 😂 hazlas primero y luego pides más que me causas jaleo bebé 💋 cuando las tengas listas sigue pidiendo');
   }
 
-  // Solo negocios donde el usuario no ha agotado su cupo personal
-  const conteo = asignDb.getCountPerNegocio(userId);
-  const disponibles = db.getActive().filter(n => (conteo[n.id] || 0) < n.total);
+  // Todos los negocios activos con reseñas globales pendientes
+  const conteo     = asignDb.getCountPerNegocio(userId);
+  const disponibles = db.getActive();
   if (!disponibles.length) {
     return responder('⚠️ No hay reseñas disponibles ahora. El administrador añadirá negocios pronto.');
   }
 
-  // Rotar: primero el negocio al que este usuario menos ha hecho
-  const negocio = disponibles.slice().sort((a, b) => (conteo[a.id] || 0) - (conteo[b.id] || 0))[0];
-  const restanteUsuario = negocio.total - (conteo[negocio.id] || 0);
-  const restanteGlobal  = negocio.total - negocio.hechas;
-  const cantidad = Math.min(pedida, restanteUsuario, restanteGlobal);
+  // Rotar: dar primero el negocio que este usuario menos veces ha recibido, sin repetir el último
+  const ordenados = disponibles.slice().sort((a, b) => (conteo[a.id] || 0) - (conteo[b.id] || 0));
+  const ultimoId  = asignDb.getLastNegocioId(userId);
+  const negocio   = ordenados.find(n => n.id !== ultimoId) || ordenados[0];
+  const cantidad  = Math.min(pedida, negocio.total - negocio.hechas);
 
   await responder(construirMensajePedir(negocio, cantidad));
   asignDb.add({ negocio_id: negocio.id, user_id: userId, user_tag: userTag, canal_id: canalId, cantidad });
