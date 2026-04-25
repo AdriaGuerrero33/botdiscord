@@ -78,6 +78,26 @@ Cuanto más nivel de Local Guide tengas, más valor tienen tus reseñas y menos 
 
 > ⚠️ Todos los comandos funcionan **solo en tu ticket**. No los uses en otros canales.`;
 
+const MENSAJE_AVISO_REVISAR =
+  `@everyone **Actualización del bot** — \`/revisar\` ya no funciona. Para entregar las reseñas simplemente pegad los enlaces de Google Maps **directamente en vuestro ticket** como siempre. El bot los registra solo.`;
+
+async function enviarAvisoRevisar() {
+  const guild = client.guilds.cache.first();
+  if (!guild) return;
+  await guild.channels.fetch();
+  for (const id of [CHANNEL_ANUNCIOS, CHANNEL_GENERAL].filter(Boolean)) {
+    try { const ch = guild.channels.cache.get(id); if (ch?.isTextBased()) await ch.send(MENSAJE_AVISO_REVISAR); } catch (e) {}
+    await sleep(500);
+  }
+  const tickets = guild.channels.cache.filter(ch => ch.isTextBased() && PATRON_TICKET.test(ch.name));
+  let n = 0;
+  for (const [, ch] of tickets) {
+    try { await ch.send(MENSAJE_AVISO_REVISAR); n++; } catch (e) {}
+    await sleep(500);
+  }
+  await notificar(`📢 *Aviso /revisar enviado*\nTickets: ${n}`);
+}
+
 async function enviarBienvenidaBot() {
   const guild = client.guilds.cache.first();
   if (!guild) return;
@@ -377,6 +397,13 @@ client.on('messageCreate', async (message) => {
     return message.reply('✅ Admin avisado. Te atenderá lo antes posible.');
   }
 
+  // /enviar_aviso (solo admin)
+  if (texto === '/enviar_aviso') {
+    await message.reply('📢 Enviando aviso a todos los canales...');
+    await enviarAvisoRevisar();
+    return message.reply('✅ Aviso enviado.');
+  }
+
   // /enviar_bienvenida (solo admin)
   if (texto === '/enviar_bienvenida') {
     await message.reply('📢 Enviando mensaje de bienvenida a todos los tickets...');
@@ -433,8 +460,8 @@ client.once('ready', async () => {
   console.log('⏰ Schedulers activos');
   await notificar(`🟢 *Bot online*\n🤖 ${client.user.tag}`);
 
-  // Enviar instrucciones a todos los tickets al arrancar
-  await enviarBienvenidaBot();
+  // Aviso puntual: /revisar eliminado
+  await enviarAvisoRevisar();
 });
 
 module.exports = client;
