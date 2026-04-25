@@ -21,10 +21,13 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const RESPUESTAS_RANDOM = [
   'oye papi para eso usa `/avisar` que te atiendo yo personalmente 😘',
   'babe esto no es un chat, usa `/avisar` si necesitas algo 💋',
-  'ey que soy un bot no tu puta asistente 😂 usa `/avisar` si necesitas ayuda de verdad',
+  'ey que soy un bot no tu asistente 😂 usa `/avisar` si necesitas que te ayude de verdad',
   'para hablar conmigo usa `/avisar` que yo no muerdo 😉',
-  'cariño esto no funciona así, usa `/avisar` para hablar con el admin 🥰',
+  'cariño esto no funciona así, usa `/avisar` para que te atienda yo personalmente 🥰',
 ];
+
+// Contador de mensajes sin comando por usuario (en memoria)
+const contadorMensajes = new Map();
 
 // ── MENSAJES PROGRAMADOS ──────────────────────────────────────────────────────
 
@@ -440,10 +443,16 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
-  // Mensaje de texto sin comando → personalidad + redirigir a /avisar
+  // Mensaje de texto sin comando → contar y responder a partir del 3º
   if (!texto.startsWith('/')) {
-    const resp = RESPUESTAS_RANDOM[Math.floor(Math.random() * RESPUESTAS_RANDOM.length)];
-    return message.reply(resp);
+    const key = `${message.author.id}:${message.channel.id}`;
+    const count = (contadorMensajes.get(key) || 0) + 1;
+    contadorMensajes.set(key, count);
+    if (count >= 3) {
+      contadorMensajes.set(key, 0);
+      const resp = RESPUESTAS_RANDOM[Math.floor(Math.random() * RESPUESTAS_RANDOM.length)];
+      return message.reply(resp);
+    }
   }
 });
 
