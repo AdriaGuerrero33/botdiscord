@@ -185,13 +185,14 @@ async function registrarComandos() {
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 function construirMensajePedir(negocio, cantidad) {
-  return [
+  const descripcion = negocio.descripcion?.trim() || '_Sin indicaciones específicas._';
+  const partes = [
     negocio.enlace,
     '',
     `**CANTIDAD:** ${cantidad}`,
     '',
     '**INDICACIONES PARA LOS TEXTOS:**',
-    negocio.descripcion?.trim() || '_Sin indicaciones específicas._',
+    descripcion,
     '',
     '# NO USAR BAJO NINGÚN CONCEPTO IA',
     '## SI SE USA IA SERÁ PENALIZADO',
@@ -199,6 +200,9 @@ function construirMensajePedir(negocio, cantidad) {
     '',
     `> ¿Quieres reseñas de otro negocio? Escribe \`/pedir ${cantidad}\` de nuevo.`,
   ].join('\n');
+
+  // Discord limit: 2000 chars
+  return partes.length > 1990 ? partes.slice(0, 1990) + '…' : partes;
 }
 
 async function procesarPedir(userId, userTag, canalId, pedida, responder) {
@@ -336,8 +340,13 @@ client.on('interactionCreate', async (interaction) => {
       await reply('✅ Admin avisado. Te atenderá lo antes posible.');
     }
   } catch (err) {
-    console.error('[Slash]', err.message);
-    try { interaction.replied ? interaction.followUp({ content: '❌ Error.', ephemeral: true }) : interaction.reply({ content: '❌ Error.', ephemeral: true }); } catch {}
+    console.error('[Slash] ERROR:', err.message, err.stack);
+    const errMsg = `❌ Error interno: ${err.message?.slice(0, 200) || 'desconocido'}`;
+    try {
+      interaction.replied || interaction.deferred
+        ? interaction.followUp({ content: errMsg, ephemeral: true })
+        : interaction.reply({ content: errMsg, ephemeral: true });
+    } catch {}
   }
 });
 
