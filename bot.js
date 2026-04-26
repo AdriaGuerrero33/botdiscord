@@ -225,7 +225,14 @@ async function procesarPedir(userId, userTag, canalId, pedida, responder) {
 
   await responder(construirMensajePedir(negocio, cantidad));
   asignDb.add({ negocio_id: negocio.id, user_id: userId, user_tag: userTag, canal_id: canalId, cantidad });
+  db.addHechas(negocio.id, cantidad);
   await notificar(`📋 *Nueva asignación*\n👤 ${userTag}\n🏪 ${negocio.nombre}\n📝 ${cantidad} reseñas`);
+
+  // Aviso al 100%
+  const stats = db.stats();
+  if (stats.necesarias > 0 && stats.hechas >= stats.necesarias) {
+    await notificar('🎉 *¡Todas las reseñas asignadas!*\n✅ ' + stats.hechas + '/' + stats.necesarias + ' — Hay que poner más 🚀');
+  }
 }
 
 function getSemanaActual() {
@@ -440,40 +447,6 @@ client.on('messageCreate', async (message) => {
   if (!PATRON_TICKET.test(message.channel.name)) return;
 
   // Links de Google Maps → registrar en silencio y reenviar a administradores
-  const links = extraerLinks(message.content);
-  if (links.length) {
-    const adminCh = getAdminChannel(message.guild);
-    for (const link of links) {
-      const res = await verificar(link, message.author.id, message.author.tag, message.channel.id);
-      const icono = res.estado === 'valida' ? '✅' : res.estado === 'duplicada' ? '⚠️' : '❌';
-      const estado = res.estado === 'valida' ? 'válida' : res.estado === 'duplicada' ? 'duplicada' : 'eliminada';
-      if (res.estado === 'valida') {
-        const negocioId = asignDb.getLastNegocioId(message.author.id);
-        if (negocioId) {
-          db.addHechas(negocioId, 1);
-          const negocio = db.get(negocioId);
-          const asign   = asignDb.getLastAsignacion(message.author.id);
-          await notificar(
-            `📋 *Reseña recibida*\n` +
-            `👤 ${message.author.tag}\n` +
-            `🏪 ${negocio?.nombre || '—'}\n` +
-            `📝 Cantidad asignada: ${asign?.cantidad ?? '—'}\n` +
-            `📌 ${message.channel.name}`
-          );
-          // Aviso al 100%
-          const stats = db.stats();
-          if (stats.necesarias > 0 && stats.hechas >= stats.necesarias) {
-            await notificar('🎉 *¡Todas las reseñas completadas!*\n✅ ' + stats.hechas + '/' + stats.necesarias + ' — Hay que poner más 🚀');
-          }
-        }
-      }
-      if (adminCh) {
-        await adminCh.send(`${icono} **${message.author.tag}** · ${message.channel.name} · ${estado}\n${link}`);
-      }
-    }
-    return;
-  }
-
   // Mensaje de texto sin comando → contar y responder a partir del 3º
   if (!texto.startsWith('/')) {
     const key = `${message.author.id}:${message.channel.id}`;
