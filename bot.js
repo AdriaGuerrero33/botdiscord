@@ -210,12 +210,6 @@ async function procesarPedir(userId, userTag, canalId, pedida, responder) {
     return responder('❌ Indica cuántas reseñas quieres hacer. Ejemplo: `/pedir 3` (máximo 5)');
   }
 
-  // Si pide demasiadas veces hoy, responder con personalidad
-  const requestsHoy = asignDb.getRequestsToday(userId);
-  if (requestsHoy >= 6) {
-    return responder('papi relájate un poco 😂 hazlas primero y luego pides más que me causas jaleo bebé 💋 cuando las tengas listas sigue pidiendo');
-  }
-
   // Todos los negocios activos con reseñas globales pendientes
   const conteo     = asignDb.getCountPerNegocio(userId);
   const disponibles = db.getActive();
