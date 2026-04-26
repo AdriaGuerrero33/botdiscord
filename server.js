@@ -28,7 +28,6 @@ if (PASS) {
     res.status(401).send('Acceso no autorizado');
   });
 }
-}
 
 app.use(express.static(path.join(__dirname, 'public')));
 
