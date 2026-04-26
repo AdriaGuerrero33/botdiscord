@@ -460,6 +460,11 @@ client.on('messageCreate', async (message) => {
             `📝 Cantidad asignada: ${asign?.cantidad ?? '—'}\n` +
             `📌 ${message.channel.name}`
           );
+          // Aviso al 100%
+          const stats = db.stats();
+          if (stats.necesarias > 0 && stats.hechas >= stats.necesarias) {
+            await notificar('🎉 *¡Todas las reseñas completadas!*\n✅ ' + stats.hechas + '/' + stats.necesarias + ' — Hay que poner más 🚀');
+          }
         }
       }
       if (adminCh) {
