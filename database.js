@@ -100,6 +100,10 @@ const asignaciones = {
     const last = d.asignaciones.filter(a => a.user_id === user_id).at(-1);
     return last?.negocio_id ?? null;
   },
+  getLastAsignacion(user_id) {
+    const d = load();
+    return d.asignaciones.filter(a => a.user_id === user_id).at(-1) ?? null;
+  },
   getRequestsToday(user_id) {
     const hoy = new Date().toISOString().split('T')[0];
     const d = load();
