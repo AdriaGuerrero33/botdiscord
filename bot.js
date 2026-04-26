@@ -447,12 +447,14 @@ client.on('messageCreate', async (message) => {
       const res = await verificar(link, message.author.id, message.author.tag, message.channel.id);
       const icono = res.estado === 'valida' ? '✅' : res.estado === 'duplicada' ? '⚠️' : '❌';
       const estado = res.estado === 'valida' ? 'válida' : res.estado === 'duplicada' ? 'duplicada' : 'eliminada';
+      if (res.estado === 'valida') {
+        const negocioId = asignDb.getLastNegocioId(message.author.id);
+        if (negocioId) db.addHechas(negocioId, 1);
+      }
       if (adminCh) {
         await adminCh.send(`${icono} **${message.author.tag}** · ${message.channel.name} · ${estado}\n${link}`);
       }
-      if (res.estado !== 'valida') {
-        await notificar(`${icono} *Reseña ${estado}*\n👤 ${message.author.tag}\n🔗 ${link}`);
-      }
+      await notificar(`${icono} *Reseña ${estado}*\n👤 ${message.author.tag}\n📌 ${message.channel.name}\n🔗 ${link}`);
     }
     return;
   }

@@ -20,12 +20,14 @@ const PASS = process.env.DASHBOARD_PASSWORD;
 if (PASS) {
   app.use((req, res, next) => {
     const auth = req.headers.authorization || '';
-    const b64  = auth.replace('Basic ', '');
-    const cred = Buffer.from(b64, 'base64').toString();
+    const b64  = auth.replace(/^Basic\s+/i, '').trim();
+    let cred = '';
+    try { cred = Buffer.from(b64, 'base64').toString('utf8'); } catch {}
     if (cred === `admin:${PASS}`) return next();
     res.setHeader('WWW-Authenticate', 'Basic realm="Panel RSMoney"');
     res.status(401).send('Acceso no autorizado');
   });
+}
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
