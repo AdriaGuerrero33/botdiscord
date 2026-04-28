@@ -483,8 +483,17 @@ client.once('ready', async () => {
   console.log('⏰ Schedulers activos');
   await notificar(`🟢 *Bot online*\n🤖 ${client.user.tag}`);
 
-  // Aviso puntual: /revisar eliminado
-  await enviarAvisoRevisar();
+  // Aviso de actualización solo en canales generales
+  const guild = client.guilds.cache.first();
+  if (guild) {
+    await guild.channels.fetch();
+    for (const id of [CHANNEL_ANUNCIOS, CHANNEL_GENERAL].filter(Boolean)) {
+      try {
+        const ch = guild.channels.cache.get(id);
+        if (ch?.isTextBased()) await ch.send('🔧 **Nueva actualización del bot** — Todo listo y funcionando.');
+      } catch {}
+    }
+  }
 });
 
 module.exports = client;
