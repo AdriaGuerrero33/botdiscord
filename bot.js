@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const cron = require('node-cron');
-const { negocios: db, asignaciones: asignDb, reseñas: reseñasDb } = require('./database');
+const { negocios: db, asignaciones: asignDb, reseñas: reseñasDb, bloqueos: bloqueosDb } = require('./database');
 const { notificar, notificarAudio, iniciarReporteDiario } = require('./telegram');
 const { analizar } = require('./gemini');
 const { verificar, extraerLinks } = require('./reviews');
@@ -295,6 +295,11 @@ client.on('interactionCreate', async (interaction) => {
       if (!PATRON_TICKET.test(interaction.channel?.name)) {
         return interaction.reply({ content: '❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).', ephemeral: true });
       }
+      const hasta = bloqueosDb.estaBloqueado(interaction.channel.name);
+      if (hasta) {
+        const fin = new Date(hasta).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'short', timeStyle: 'short' });
+        return interaction.reply({ content: `🚫 Este ticket está bloqueado hasta el **${fin}**. Contacta con el admin si crees que es un error.`, ephemeral: true });
+      }
     }
 
     if (interaction.commandName === 'revisar') {
@@ -363,6 +368,11 @@ client.on('messageCreate', async (message) => {
   if (texto.startsWith('/pedir')) {
     if (!PATRON_TICKET.test(message.channel.name)) {
       return message.reply('❌ Este comando solo se puede usar en tu ticket personal (`ticket-XXXX`).');
+    }
+    const hasta = bloqueosDb.estaBloqueado(message.channel.name);
+    if (hasta) {
+      const fin = new Date(hasta).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', dateStyle: 'short', timeStyle: 'short' });
+      return message.reply(`🚫 Este ticket está bloqueado hasta el **${fin}**. Contacta con el admin si crees que es un error.`);
     }
     const n = parseInt(texto.split(/\s+/)[1], 10);
     return procesarPedir(

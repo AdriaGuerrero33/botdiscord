@@ -9,7 +9,7 @@ if (!fs.existsSync(DIR)) fs.mkdirSync(DIR, { recursive: true });
 
 const FILE = process.env.DB_PATH || path.join(DIR, 'data.json');
 
-const EMPTY = { negocios: [], asignaciones: [], reseñas: [] };
+const EMPTY = { negocios: [], asignaciones: [], reseñas: [], bloqueos: [] };
 
 function load() {
   try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); }
@@ -163,5 +163,40 @@ const reseñas = {
   },
 };
 
+// ── BLOQUEOS ──────────────────────────────────────────────────────────────────
+const bloqueos = {
+  bloquear(ticket, horas) {
+    const d = load();
+    if (!d.bloqueos) d.bloqueos = [];
+    d.bloqueos = d.bloqueos.filter(b => b.ticket !== ticket); // reemplaza si ya existe
+    const hasta = new Date(Date.now() + horas * 60 * 60 * 1000).toISOString();
+    d.bloqueos.push({ ticket, hasta, creado: now() });
+    save(d);
+  },
+  desbloquear(ticket) {
+    const d = load();
+    if (!d.bloqueos) return;
+    d.bloqueos = d.bloqueos.filter(b => b.ticket !== ticket);
+    save(d);
+  },
+  estaBloqueado(ticket) {
+    const d = load();
+    if (!d.bloqueos) return false;
+    const b = d.bloqueos.find(b => b.ticket === ticket);
+    if (!b) return false;
+    if (new Date(b.hasta) <= new Date()) {
+      // expirado, limpiar
+      d.bloqueos = d.bloqueos.filter(x => x.ticket !== ticket);
+      save(d);
+      return false;
+    }
+    return b.hasta;
+  },
+  getAll() {
+    const d = load();
+    return (d.bloqueos || []).filter(b => new Date(b.hasta) > new Date());
+  },
+};
+
 console.log('[DB] Base de datos JSON lista en', FILE);
-module.exports = { negocios, asignaciones, reseñas };
+module.exports = { negocios, asignaciones, reseñas, bloqueos };

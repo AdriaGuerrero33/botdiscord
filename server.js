@@ -1,6 +1,6 @@
 const express = require('express');
 const path    = require('path');
-const { negocios, asignaciones } = require('./database');
+const { negocios, asignaciones, bloqueos } = require('./database');
 const { analizar } = require('./gemini');
 
 const PATRON_TICKET = /^ticket-\d+$/;
@@ -82,6 +82,18 @@ app.post('/api/difusion', async (req, res) => {
     await sleep(600);
   }
   res.json({ ok: true, enviados });
+});
+
+app.get('/api/bloqueos',        (_, res) => res.json(bloqueos.getAll()));
+app.post('/api/bloqueos',       (req, res) => {
+  const { ticket, horas } = req.body;
+  if (!ticket || !horas) return res.status(400).json({ error: 'ticket y horas requeridos' });
+  bloqueos.bloquear(ticket, Number(horas));
+  res.json({ ok: true });
+});
+app.delete('/api/bloqueos/:ticket', (req, res) => {
+  bloqueos.desbloquear(decodeURIComponent(req.params.ticket));
+  res.json({ ok: true });
 });
 
 app.get('/api/reporte', async (_, res) => {

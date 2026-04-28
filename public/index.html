@@ -257,6 +257,7 @@ tbody tr:hover td{background:var(--hover)}
     <div class="tab active" onclick="switchTab('negocios',this)">🏪 Negocios</div>
     <div class="tab" onclick="switchTab('historial',this)">📋 Historial</div>
     <div class="tab" onclick="switchTab('difusion',this)">📣 Difusión</div>
+    <div class="tab" onclick="switchTab('bloqueos',this)">🚫 Bloqueos</div>
   </div>
 
   <!-- TAB NEGOCIOS -->
@@ -294,6 +295,29 @@ tbody tr:hover td{background:var(--hover)}
       <span class="section-title">Últimas asignaciones</span>
     </div>
     <div class="table-wrap" id="historial-list"></div>
+  </div>
+
+  <!-- TAB BLOQUEOS -->
+  <div id="tab-bloqueos" style="display:none">
+    <div class="section-header">
+      <span class="section-title">🚫 Bloquear ticket</span>
+    </div>
+    <div class="card" style="padding:24px;display:flex;flex-direction:column;gap:16px;margin-bottom:20px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="font-size:12px;color:var(--text2)">Número de ticket</label>
+          <input id="blq-ticket" type="number" placeholder="488" style="background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;width:150px;font-size:14px">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label style="font-size:12px;color:var(--text2)">Duración (horas)</label>
+          <input id="blq-horas" type="number" placeholder="24" value="24" style="background:var(--input);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;width:120px;font-size:14px">
+        </div>
+        <button class="btn btn-danger" onclick="bloquearTicket()">🚫 Bloquear</button>
+        <span id="blq-status" style="font-size:13px;color:var(--text2)"></span>
+      </div>
+    </div>
+    <div class="section-header"><span class="section-title">Bloqueos activos</span></div>
+    <div class="table-wrap" id="bloqueos-list"></div>
   </div>
 
   <!-- TAB DIFUSIÓN -->
@@ -473,7 +497,43 @@ function switchTab(name, el) {
   document.getElementById('tab-negocios').style.display  = name==='negocios'  ? '' : 'none';
   document.getElementById('tab-historial').style.display = name==='historial' ? '' : 'none';
   document.getElementById('tab-difusion').style.display  = name==='difusion'  ? '' : 'none';
+  document.getElementById('tab-bloqueos').style.display  = name==='bloqueos'  ? '' : 'none';
   if (name === 'historial') cargarHistorial();
+  if (name === 'bloqueos')  cargarBloqueos();
+}
+
+async function cargarBloqueos() {
+  const list = document.getElementById('bloqueos-list');
+  const data = await fetch('/api/bloqueos').then(r => r.json());
+  if (!data.length) { list.innerHTML = '<p style="padding:16px;color:var(--text2)">No hay bloqueos activos.</p>'; return; }
+  list.innerHTML = `<table><thead><tr><th>Ticket</th><th>Bloqueado hasta</th><th>Acciones</th></tr></thead><tbody>
+    ${data.map(b => `<tr>
+      <td><strong>${b.ticket}</strong></td>
+      <td>${new Date(b.hasta).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="desbloquear('${b.ticket}')">🔓 Desbloquear</button></td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+async function bloquearTicket() {
+  const num    = document.getElementById('blq-ticket').value.trim();
+  const horas  = document.getElementById('blq-horas').value.trim();
+  const status = document.getElementById('blq-status');
+  if (!num || !horas) { status.textContent = '⚠️ Rellena ticket y horas.'; return; }
+  status.textContent = '⏳ Bloqueando...';
+  const r = await fetch('/api/bloqueos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket: `ticket-${num}`, horas: Number(horas) }),
+  });
+  const d = await r.json();
+  if (d.ok) { status.textContent = `✅ ticket-${num} bloqueado ${horas}h`; cargarBloqueos(); }
+  else status.textContent = '❌ Error: ' + d.error;
+}
+
+async function desbloquear(ticket) {
+  await fetch(`/api/bloqueos/${encodeURIComponent(ticket)}`, { method: 'DELETE' });
+  cargarBloqueos();
 }
 
 async function enviarDifusion() {
