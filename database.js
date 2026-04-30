@@ -95,7 +95,8 @@ const asignaciones = {
       .filter(a => a.negocio_id === negocio_id)
       .map(a => ({
         user_tag:     a.user_tag,
-        canal_nombre: a.canal_nombre || a.canal_id,
+        canal_nombre: a.canal_nombre || '',
+        canal_id:     a.canal_id,
         cantidad:     a.cantidad,
         fecha:        a.fecha,
       }));

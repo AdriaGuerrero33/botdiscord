@@ -620,14 +620,17 @@ async function verTickets(id, nombre) {
   // Agrupar por ticket
   const grupos = {};
   data.forEach(a => {
-    const key = a.canal_nombre || a.user_tag;
-    if (!grupos[key]) grupos[key] = { cantidad: 0, user_tag: a.user_tag, fechas: [] };
+    const key = a.canal_nombre || a.canal_id;
+    if (!grupos[key]) grupos[key] = { cantidad: 0, user_tag: a.user_tag, fechas: [], canal_id: a.canal_id, canal_nombre: a.canal_nombre };
     grupos[key].cantidad += a.cantidad;
     grupos[key].fechas.push(a.fecha?.slice(0,10));
   });
-  const filas = Object.entries(grupos).map(([ticket, g]) =>
-    `<tr><td><strong>${ticket}</strong></td><td>${g.user_tag}</td><td style="text-align:center">${g.cantidad}</td><td style="color:var(--text2);font-size:12px">${[...new Set(g.fechas)].join(', ')}</td></tr>`
-  ).join('');
+  const filas = Object.entries(grupos).map(([ticket, g]) => {
+    const ticketCell = g.canal_nombre
+      ? `<strong>${g.canal_nombre}</strong> <span style="color:var(--sub);font-size:11px">#${g.canal_id}</span>`
+      : `<strong>${g.canal_id}</strong>`;
+    return `<tr><td>${ticketCell}</td><td>${g.user_tag}</td><td style="text-align:center">${g.cantidad}</td><td style="color:var(--sub);font-size:12px">${[...new Set(g.fechas)].join(', ')}</td></tr>`;
+  }).join('');
   document.getElementById('tickets-body').innerHTML =
     `<table><thead><tr><th>Ticket</th><th>Usuario</th><th style="text-align:center">Cant.</th><th>Fechas</th></tr></thead><tbody>${filas}</tbody></table>`;
 }
