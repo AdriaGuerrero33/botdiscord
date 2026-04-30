@@ -84,10 +84,21 @@ const negocios = {
 
 // ── ASIGNACIONES ──────────────────────────────────────────────────────────────
 const asignaciones = {
-  add({ negocio_id, user_id, user_tag, canal_id, cantidad }) {
+  add({ negocio_id, user_id, user_tag, canal_id, canal_nombre, cantidad }) {
     const d = load();
-    d.asignaciones.push({ id: nextId(d.asignaciones), negocio_id, user_id, user_tag, canal_id, cantidad, fecha: now() });
+    d.asignaciones.push({ id: nextId(d.asignaciones), negocio_id, user_id, user_tag, canal_id, canal_nombre: canal_nombre || '', cantidad, fecha: now() });
     save(d);
+  },
+  getByNegocio(negocio_id) {
+    const d = load();
+    return d.asignaciones
+      .filter(a => a.negocio_id === negocio_id)
+      .map(a => ({
+        user_tag:     a.user_tag,
+        canal_nombre: a.canal_nombre || a.canal_id,
+        cantidad:     a.cantidad,
+        fecha:        a.fecha,
+      }));
   },
   getRecent(limit = 30) {
     const d = load();

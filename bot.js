@@ -205,7 +205,7 @@ function construirMensajePedir(negocio, cantidad) {
   return partes.length > 1990 ? partes.slice(0, 1990) + '…' : partes;
 }
 
-async function procesarPedir(userId, userTag, canalId, pedida, responder) {
+async function procesarPedir(userId, userTag, canalId, canalNombre, pedida, responder) {
   if (!pedida || isNaN(pedida) || pedida < 1 || pedida > 5) {
     return responder('❌ Indica cuántas reseñas quieres hacer. Ejemplo: `/pedir 3` (máximo 5)');
   }
@@ -224,7 +224,7 @@ async function procesarPedir(userId, userTag, canalId, pedida, responder) {
   const cantidad  = Math.min(pedida, negocio.total - negocio.hechas);
 
   await responder(construirMensajePedir(negocio, cantidad));
-  asignDb.add({ negocio_id: negocio.id, user_id: userId, user_tag: userTag, canal_id: canalId, cantidad });
+  asignDb.add({ negocio_id: negocio.id, user_id: userId, user_tag: userTag, canal_id: canalId, canal_nombre: canalNombre, cantidad });
   db.addHechas(negocio.id, cantidad);
   await notificar(`📋 *Nueva asignación*\n👤 ${userTag}\n🏪 ${negocio.nombre}\n📝 ${cantidad} reseñas`);
 
@@ -314,7 +314,7 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.commandName === 'pedir') {
       const cantidad = interaction.options.getInteger('cantidad');
-      await procesarPedir(interaction.user.id, interaction.user.tag, interaction.channelId, cantidad, reply);
+      await procesarPedir(interaction.user.id, interaction.user.tag, interaction.channelId, interaction.channel?.name || '', cantidad, reply);
     }
 
     if (interaction.commandName === 'reporte') {
@@ -376,7 +376,7 @@ client.on('messageCreate', async (message) => {
     }
     const n = parseInt(texto.split(/\s+/)[1], 10);
     return procesarPedir(
-      message.author.id, message.author.tag, message.channel.id, n,
+      message.author.id, message.author.tag, message.channel.id, message.channel.name, n,
       (msg) => message.reply(msg)
     );
   }

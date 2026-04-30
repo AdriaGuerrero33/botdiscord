@@ -21,6 +21,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/negocios', (_, res) => res.json(negocios.getAll()));
 app.get('/api/stats',    (_, res) => res.json(negocios.stats()));
 app.get('/api/asignaciones', (_, res) => res.json(asignaciones.getRecent(30)));
+app.get('/api/asignaciones/negocio/:id', (req, res) => res.json(asignaciones.getByNegocio(Number(req.params.id))));
 
 app.post('/api/negocios', (req, res) => {
   const { nombre, enlace, total, prioridad, descripcion } = req.body;

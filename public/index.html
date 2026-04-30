@@ -347,6 +347,17 @@ tbody tr:hover td{background:var(--hover)}
 
 </div>
 
+<!-- MODAL TICKETS -->
+<div class="overlay" id="overlay-tickets" onclick="cerrarTickets()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center">
+  <div onclick="event.stopPropagation()" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:min(560px,95vw);max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <span id="tickets-title" style="font-size:16px;font-weight:700"></span>
+      <button onclick="cerrarTickets()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:20px">✕</button>
+    </div>
+    <div id="tickets-body"></div>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="overlay" id="overlay">
   <div class="modal">
@@ -477,6 +488,7 @@ function renderTabla(data) {
       <td><span class="badge ${n.activo ? 'badge-on' : 'badge-off'}"><span class="badge-dot"></span>${n.activo ? 'Activo' : 'Pausado'}</span></td>
       <td>
         <div class="actions">
+          <button class="btn btn-ghost btn-sm" onclick="verTickets(${n.id},'${esc(n.nombre)}')">🎫 Tickets</button>
           <button class="btn btn-ghost btn-sm" onclick="editar(${n.id})">✏️ Editar</button>
           <button class="btn btn-danger btn-sm" onclick="eliminar(${n.id},'${esc(n.nombre)}')">🗑</button>
         </div>
@@ -595,6 +607,31 @@ async function guardar() {
   cerrarModal();
   cargar();
 }
+
+async function verTickets(id, nombre) {
+  document.getElementById('tickets-title').textContent = '🎫 Tickets asignados — ' + nombre;
+  document.getElementById('tickets-body').innerHTML = '<p style="color:var(--text2)">Cargando...</p>';
+  document.getElementById('overlay-tickets').style.display = 'flex';
+  const data = await fetch(`/api/asignaciones/negocio/${id}`).then(r => r.json());
+  if (!data.length) {
+    document.getElementById('tickets-body').innerHTML = '<p style="color:var(--text2)">Sin asignaciones para este negocio.</p>';
+    return;
+  }
+  // Agrupar por ticket
+  const grupos = {};
+  data.forEach(a => {
+    const key = a.canal_nombre || a.user_tag;
+    if (!grupos[key]) grupos[key] = { cantidad: 0, user_tag: a.user_tag, fechas: [] };
+    grupos[key].cantidad += a.cantidad;
+    grupos[key].fechas.push(a.fecha?.slice(0,10));
+  });
+  const filas = Object.entries(grupos).map(([ticket, g]) =>
+    `<tr><td><strong>${ticket}</strong></td><td>${g.user_tag}</td><td style="text-align:center">${g.cantidad}</td><td style="color:var(--text2);font-size:12px">${[...new Set(g.fechas)].join(', ')}</td></tr>`
+  ).join('');
+  document.getElementById('tickets-body').innerHTML =
+    `<table><thead><tr><th>Ticket</th><th>Usuario</th><th style="text-align:center">Cant.</th><th>Fechas</th></tr></thead><tbody>${filas}</tbody></table>`;
+}
+function cerrarTickets() { document.getElementById('overlay-tickets').style.display = 'none'; }
 
 async function eliminar(id, nombre) {
   if (!confirm(`¿Eliminar "${nombre}"? No se puede deshacer.`)) return;
