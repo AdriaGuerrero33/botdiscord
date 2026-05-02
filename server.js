@@ -63,18 +63,23 @@ app.post('/api/difusion', async (req, res) => {
   const { mensaje, destino } = req.body;
   if (!mensaje) return res.status(400).json({ error: 'mensaje requerido' });
   const client = getClient();
-  if (!client?.guilds) return res.status(503).json({ error: 'Bot de Discord no conectado' });
+  if (!client?.guilds) return res.status(503).json({ error: 'Bot de Discord no conectado. Espera unos segundos y reintenta.' });
   const guild = client.guilds.cache.first();
-  if (!guild) return res.status(503).json({ error: 'Sin servidor Discord' });
-  await guild.channels.fetch();
+  if (!guild) {
+    try { await client.guilds.fetch(); } catch {}
+    const guild2 = client.guilds.cache.first();
+    if (!guild2) return res.status(503).json({ error: 'Sin servidor Discord. El bot puede estar arrancando, espera 10s y reintenta.' });
+  }
+  const g = client.guilds.cache.first();
+  await g.channels.fetch();
 
   const canales = [];
   if (destino === 'tickets' || destino === 'todos') {
-    guild.channels.cache.filter(ch => ch.isTextBased() && PATRON_TICKET.test(ch.name)).forEach(ch => canales.push(ch));
+    g.channels.cache.filter(ch => ch.isTextBased() && PATRON_TICKET.test(ch.name)).forEach(ch => canales.push(ch));
   }
   if (destino === 'general' || destino === 'todos') {
     const ids = [process.env.CHANNEL_ANUNCIOS, process.env.CHANNEL_GENERAL].filter(Boolean);
-    ids.forEach(id => { const ch = guild.channels.cache.get(id); if (ch?.isTextBased()) canales.push(ch); });
+    ids.forEach(id => { const ch = g.channels.cache.get(id); if (ch?.isTextBased()) canales.push(ch); });
   }
 
   let enviados = 0;

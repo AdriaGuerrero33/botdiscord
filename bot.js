@@ -313,7 +313,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.commandName === 'pedir') {
-      const cantidad = interaction.options.getInteger('cantidad');
+      const cantidad = interaction.options.getInteger('cantidad') ?? 3;
       await procesarPedir(interaction.user.id, interaction.user.tag, interaction.channelId, interaction.channel?.name || '', cantidad, reply);
     }
 
