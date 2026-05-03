@@ -472,6 +472,11 @@ client.on('messageCreate', async (message) => {
 
 client.on('error', err => console.error('[Discord]', err.message));
 
+client.on('guildCreate', async () => {
+  await registrarComandos();
+  console.log('[Slash] Comandos re-registrados tras añadir al servidor');
+});
+
 client.once('ready', async () => {
   console.log(`✅ Bot conectado: ${client.user.tag}`);
   await registrarComandos();
