@@ -60,36 +60,41 @@ app.delete('/api/negocios/:id', (req, res) => {
 });
 
 app.post('/api/difusion', async (req, res) => {
-  const { mensaje, destino } = req.body;
-  if (!mensaje) return res.status(400).json({ error: 'mensaje requerido' });
-  const client = getClient();
-  if (!client?.guilds) return res.status(503).json({ error: 'Bot de Discord no conectado. Espera unos segundos y reintenta.' });
+  try {
+    const { mensaje, destino } = req.body;
+    if (!mensaje) return res.status(400).json({ error: 'mensaje requerido' });
 
-  // Usar el GUILD_ID configurado, o el primer servidor disponible
-  const GUILD_ID = process.env.DISCORD_GUILD_ID;
-  let g = GUILD_ID ? client.guilds.cache.get(GUILD_ID) : client.guilds.cache.first();
-  if (!g) {
-    try { g = GUILD_ID ? await client.guilds.fetch(GUILD_ID) : (await client.guilds.fetch(), client.guilds.cache.first()); } catch {}
-  }
-  if (!g) return res.status(503).json({ error: 'Sin servidor Discord. El bot puede estar arrancando, espera 10s y reintenta.' });
+    const client = getClient();
+    if (!client?.isReady()) return res.status(503).json({ error: 'Bot de Discord no conectado. Espera unos segundos y reintenta.' });
 
-  await g.channels.fetch();
+    const GUILD_ID = process.env.DISCORD_GUILD_ID;
+    let g = GUILD_ID ? client.guilds.cache.get(GUILD_ID) : client.guilds.cache.first();
+    if (!g && GUILD_ID) {
+      try { g = await client.guilds.fetch(GUILD_ID); } catch {}
+    }
+    if (!g) return res.status(503).json({ error: 'Servidor Discord no encontrado. Comprueba DISCORD_GUILD_ID.' });
 
-  const canales = [];
-  if (destino === 'tickets' || destino === 'todos') {
-    g.channels.cache.filter(ch => ch.isTextBased() && PATRON_TICKET.test(ch.name)).forEach(ch => canales.push(ch));
-  }
-  if (destino === 'general' || destino === 'todos') {
-    const ids = [process.env.CHANNEL_ANUNCIOS, process.env.CHANNEL_GENERAL].filter(Boolean);
-    ids.forEach(id => { const ch = g.channels.cache.get(id); if (ch?.isTextBased()) canales.push(ch); });
-  }
+    try { await g.channels.fetch(); } catch {}
 
-  let enviados = 0, fallidos = 0;
-  for (const ch of canales) {
-    try { await ch.send(mensaje); enviados++; } catch { fallidos++; }
-    await sleep(600);
+    const canales = [];
+    if (destino === 'tickets' || destino === 'todos') {
+      g.channels.cache.forEach(ch => { if (ch.isTextBased() && PATRON_TICKET.test(ch.name)) canales.push(ch); });
+    }
+    if (destino === 'general' || destino === 'todos') {
+      const ids = [process.env.CHANNEL_ANUNCIOS, process.env.CHANNEL_GENERAL].filter(Boolean);
+      ids.forEach(id => { const ch = g.channels.cache.get(id); if (ch?.isTextBased()) canales.push(ch); });
+    }
+
+    let enviados = 0, fallidos = 0;
+    for (const ch of canales) {
+      try { await ch.send(mensaje); enviados++; } catch { fallidos++; }
+      await sleep(600);
+    }
+    res.json({ ok: true, enviados, fallidos, encontrados: canales.length });
+  } catch (err) {
+    console.error('[Difusion] ERROR:', err.message);
+    res.status(500).json({ error: err.message || 'Error interno del servidor' });
   }
-  res.json({ ok: true, enviados, fallidos, encontrados: canales.length });
 });
 
 app.get('/api/bloqueos',        (_, res) => res.json(bloqueos.getAll()));
