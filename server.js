@@ -64,13 +64,15 @@ app.post('/api/difusion', async (req, res) => {
   if (!mensaje) return res.status(400).json({ error: 'mensaje requerido' });
   const client = getClient();
   if (!client?.guilds) return res.status(503).json({ error: 'Bot de Discord no conectado. Espera unos segundos y reintenta.' });
-  const guild = client.guilds.cache.first();
-  if (!guild) {
-    try { await client.guilds.fetch(); } catch {}
-    const guild2 = client.guilds.cache.first();
-    if (!guild2) return res.status(503).json({ error: 'Sin servidor Discord. El bot puede estar arrancando, espera 10s y reintenta.' });
+
+  // Usar el GUILD_ID configurado, o el primer servidor disponible
+  const GUILD_ID = process.env.DISCORD_GUILD_ID;
+  let g = GUILD_ID ? client.guilds.cache.get(GUILD_ID) : client.guilds.cache.first();
+  if (!g) {
+    try { g = GUILD_ID ? await client.guilds.fetch(GUILD_ID) : (await client.guilds.fetch(), client.guilds.cache.first()); } catch {}
   }
-  const g = client.guilds.cache.first();
+  if (!g) return res.status(503).json({ error: 'Sin servidor Discord. El bot puede estar arrancando, espera 10s y reintenta.' });
+
   await g.channels.fetch();
 
   const canales = [];
@@ -82,12 +84,12 @@ app.post('/api/difusion', async (req, res) => {
     ids.forEach(id => { const ch = g.channels.cache.get(id); if (ch?.isTextBased()) canales.push(ch); });
   }
 
-  let enviados = 0;
+  let enviados = 0, fallidos = 0;
   for (const ch of canales) {
-    try { await ch.send(mensaje); enviados++; } catch {}
+    try { await ch.send(mensaje); enviados++; } catch { fallidos++; }
     await sleep(600);
   }
-  res.json({ ok: true, enviados });
+  res.json({ ok: true, enviados, fallidos, encontrados: canales.length });
 });
 
 app.get('/api/bloqueos',        (_, res) => res.json(bloqueos.getAll()));

@@ -561,8 +561,13 @@ async function enviarDifusion() {
       body: JSON.stringify({ mensaje: msg, destino: dest }),
     });
     const d = await r.json();
-    status.textContent = d.ok ? `✅ Enviado a ${d.enviados} canal(es).` : '❌ Error: ' + d.error;
-    if (d.ok) document.getElementById('difusion-msg').value = '';
+    if (d.ok) {
+      const extra = d.fallidos > 0 ? ` (${d.fallidos} sin permisos)` : '';
+      status.innerHTML = `✅ Enviado a <strong>${d.enviados}</strong> de <strong>${d.encontrados}</strong> canales encontrados${extra}.`;
+      document.getElementById('difusion-msg').value = '';
+    } else {
+      status.textContent = '❌ Error: ' + d.error;
+    }
   } catch(e) {
     status.textContent = '❌ Error de red.';
   }
